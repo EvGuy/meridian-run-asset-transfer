@@ -13,5 +13,5 @@
   },
   "documentTypes": { "RegionBehavior": { "room": {} } },
   "manifest": "https://raw.githubusercontent.com/EvGuy/meridian-run-asset-transfer./main/meridian-perception/module.json",
-  "download": "https://raw.githubusercontent.com/EvGuy/meridian-run-asset-transfer./main/meridian-perception/meridian-perception.zip"
+  "download": "https://raw.githubusercontent.com/EvGuy/meridian-run-asset-transfer./main/meridian-perception/meridian-perception.zip?v=123"
 }
