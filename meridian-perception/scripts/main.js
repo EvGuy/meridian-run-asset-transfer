@@ -57,7 +57,7 @@ async function run(behavior, tokenDoc, { force = false } = {}) {
       await ChatMessage.create({
         speaker: { alias: "You notice" },
         whisper,
-        content: `<div class="meridian-perception">${lines.map(l => `<p>${l.text}</p>`).join("")}${found ? `<p><em>Something here is worth a closer look. Look for the red outline.</em></p>` : ""}</div>`,
+        content: `<div class="meridian-perception">${lines.map(l => `<p>${l.text}</p>`).join("")}${found ? `<p><em>Something here is worth a closer look. Look for the green outline.</em></p>` : ""}</div>`,
         flags: { [ID]: { actorId: actor.id, region: region?.uuid } }
       });
     }
@@ -114,15 +114,36 @@ function behaviorsOf(region) {
 // ---------------------------------------------------------------------------
 const poiOf = (region) => region.getFlag(ID, "poi");
 const pkey = (scene, poi) => `${scene.id}_${poi.id}`;
+const tkey = (scene, region) => `${scene.id}_trap_${region.id}`;
+
+// Eyesight + reach. Players only see an outline when their token has line of sight to it,
+// and can only use it from within 2 squares.
+function tokenFor(actor) {
+  return canvas.tokens.controlled.find(t => t.actor?.id === actor.id) ?? canvas.tokens.placeables.find(t => t.actor?.id === actor.id);
+}
+function canSee(token, b) {
+  if (!token) return false;
+  const o = token.center, backend = CONFIG.Canvas.polygonBackends?.sight;
+  if (!backend) return true;
+  const pts = [[b.x + b.w / 2, b.y + b.h / 2], [b.x + 4, b.y + 4], [b.x + b.w - 4, b.y + 4], [b.x + 4, b.y + b.h - 4], [b.x + b.w - 4, b.y + b.h - 4]];
+  return pts.some(([x, y]) => !backend.testCollision(o, { x, y }, { type: "sight", mode: "any" }));
+}
+function squaresAway(token, b) {
+  const g = canvas.grid.size, t = token.bounds ?? { x: token.x, y: token.y, width: token.w, height: token.h };
+  const gx = Math.max(0, b.x - (t.x + t.width), t.x - (b.x + b.w)), gy = Math.max(0, b.y - (t.y + t.height), t.y - (b.y + b.h));
+  return Math.hypot(gx, gy) / g;
+}
+const TOO_FAR = "You're too far away. Get within 2 squares of it first.";
 
 async function revealPois(actor, scene, roomCode, total) {
   if (!roomCode || !scene) return 0;
   const cur = actor.getFlag(ID, "revealed") ?? {};
   const add = {}; let n = 0;
   for (const r of scene.regions) {
-    const p = poiOf(r);
-    if (!p || p.room !== roomCode || total < Number(p.reveal ?? 0)) continue;
-    const k = pkey(scene, p);
+    const p = poiOf(r), tr = r.getFlag(ID, "trap");
+    const src = p ?? (tr?.room ? tr : null);
+    if (!src || src.room !== roomCode || total < Number(src.reveal ?? 0)) continue;
+    const k = p ? pkey(scene, p) : tkey(scene, r);
     if (cur[k]) continue;
     add[k] = true; n++;
   }
@@ -186,6 +207,12 @@ let socket;
 function setupSocket() {
   if (socket || typeof socketlib === "undefined") return;
   socket = socketlib.registerModule(ID);
+  socket.register("trapResolve", async (regionUuid, ok) => {
+    const region = await fromUuid(regionUuid); if (!region) return false;
+    await region.setFlag(ID, "trapState", ok ? "safe" : "sprung");
+    if (ok) for (const b of region.behaviors) await b.update({ disabled: true });
+    return true;
+  });
   socket.register("takeItem", async (actorUuid, regionUuid, names) => {
     const actor = await fromUuid(actorUuid), region = await fromUuid(regionUuid);
     if (!actor || !region) return { ok: false, reason: "missing" };
@@ -214,6 +241,7 @@ async function openPoi(region) {
   const actor = sel ?? mine.find(a => (a.getFlag(ID, "revealed") ?? {})[pkey(scene, poi)]) ?? mine[0];
   if (!actor) { ui.notifications.warn("Select your character first."); return; }
   const key = pkey(scene, poi), lock = `${actor.id}${key}`;
+  if (!game.user.isGM) { const tk = tokenFor(actor); if (!tk || squaresAway(tk, regionBounds(region)) > 2) { ui.notifications.warn(TOO_FAR); return; } }
   if (busyPoi.has(lock)) return;
   busyPoi.add(lock);
   try {
@@ -280,6 +308,32 @@ async function openPoi(region) {
   } finally { busyPoi.delete(lock); }
 }
 
+async function openTrap(region) {
+  const trap = region.getFlag(ID, "trap"), DV = foundry.applications.api.DialogV2;
+  if (!trap || region.getFlag(ID, "trapState")) return;
+  if (game.user.isGM) {
+    await DV.prompt({ window: { title: trap.title ?? region.name, icon: "fa-solid fa-skull" }, position: { width: 520 }, content: `<div>${trap.gm ?? trap.text ?? ""}</div>`, ok: { label: "Close" }, rejectClose: false });
+    return;
+  }
+  const mine = myActors(), scene = region.parent;
+  const actor = canvas.tokens.controlled.map(t => t.actor).find(a => a?.isOwner && a.type === "character") ?? mine.find(a => (a.getFlag(ID, "revealed") ?? {})[tkey(scene, region)]) ?? mine[0];
+  if (!actor) { ui.notifications.warn("Select your character first."); return; }
+  const tk = tokenFor(actor);
+  if (!tk || squaresAway(tk, regionBounds(region)) > 2) { ui.notifications.warn(TOO_FAR); return; }
+  const lock = `${actor.id}trap${region.id}`; if (busyPoi.has(lock)) return; busyPoi.add(lock);
+  try {
+    const go = await DV.confirm({ window: { title: trap.name ?? "Something here", icon: "fa-solid fa-triangle-exclamation" }, position: { width: 480 }, content: `<div>${trap.notice ?? ""}</div><p>Try to set it off safely?</p>`, yes: { label: "Set it off safely" }, no: { label: "Leave it" }, rejectClose: false });
+    if (!go) return;
+    const total = await secretRoll(actor, trap.skill || "slt");
+    const ok = total >= Number(trap.dc ?? 13);
+    await socket?.executeAsGM("trapResolve", region.uuid, ok);
+    await DV.prompt({ window: { title: trap.name ?? "Something here" }, position: { width: 480 }, content: `<div>${ok ? trap.success : trap.failure}</div>`, ok: { label: "Close" }, rejectClose: false });
+    const gms = game.users.filter(u => u.isGM).map(u => u.id);
+    await ChatMessage.create({ speaker: { alias: "Trap" }, whisper: gms, content: `<p><strong>${foundry.utils.escapeHTML(actor.name)}</strong> tried to set off <em>${foundry.utils.escapeHTML(trap.title ?? region.name)}</em> safely: <strong>${total}</strong> vs DC ${trap.dc}. ${ok ? "Safe. Trap disabled." : "FAILED. It goes off; run the trap macro / resolve it."}</p>` });
+    refreshPois();
+  } finally { busyPoi.delete(lock); }
+}
+
 let poiLayer = null, poiTick = null;
 function clearPois() {
   if (poiTick) { canvas.app.ticker.remove(poiTick); poiTick = null; }
@@ -299,25 +353,29 @@ function refreshPois() {
     if (region.getFlag(ID, "taken")) continue;
     const seen = actors.some(a => (a.getFlag(ID, "revealed") ?? {})[key]);
     if (!seen && !isGM) continue;
-    const done = actors.some(a => (a.getFlag(ID, "done") ?? {})[key] !== undefined);
     const b = regionBounds(region); if (!(b.w > 0)) continue;
+    if (!isGM && !actors.some(ac => canSee(tokenFor(ac), b))) continue;
+    const done = actors.some(a => (a.getFlag(ID, "done") ?? {})[key] !== undefined);
     const g = new PIXI.Graphics();
-    const col = done ? 0x2a8a45 : 0x3ddc5a, a = (!seen && isGM) ? 0.3 : 1;
-    g.lineStyle(5, col, a).beginFill(col, 0.08 * a).drawRoundedRect(b.x, b.y, b.w, b.h, 10).endFill();
+    const col = done ? 0xd9b84a : 0x3ddc5a, a = (!seen && isGM) ? 0.3 : (done ? 0.6 : 1);
+    g.lineStyle(done ? 3 : 5, col, a).beginFill(col, (done ? 0.05 : 0.08) * a).drawRoundedRect(b.x, b.y, b.w, b.h, 10).endFill();
     g.eventMode = "static"; g.cursor = "pointer"; g.hitArea = new PIXI.Rectangle(b.x, b.y, b.w, b.h);
     g.on("pointerdown", (ev) => { ev.stopPropagation(); openPoi(region).catch(e => console.error(ID, e)); });
-    (poiLayer ??= new PIXI.Container()).addChild(g); gfxs.push([g, a]);
+    (poiLayer ??= new PIXI.Container()).addChild(g);
+    if (done) g.alpha = a; else gfxs.push([g, a]);
   }
-  if (isGM) {
-    for (const region of scene.regions) {
-      const trap = region.getFlag(ID, "trap"); if (!trap) continue;
-      const b = regionBounds(region); if (!(b.w > 0)) continue;
-      const g = new PIXI.Graphics();
-      g.lineStyle(5, 0xff2222, 1).beginFill(0xff2222, 0.1).drawRoundedRect(b.x, b.y, b.w, b.h, 10).endFill();
-      g.eventMode = "static"; g.cursor = "pointer"; g.hitArea = new PIXI.Rectangle(b.x, b.y, b.w, b.h);
-      g.on("pointerdown", (ev) => { ev.stopPropagation(); foundry.applications.api.DialogV2.prompt({ window: { title: trap.title ?? region.name, icon: "fa-solid fa-skull" }, position: { width: 520 }, content: `<div>${trap.text ?? ""}</div>`, ok: { label: "Close" }, rejectClose: false }); });
-      (poiLayer ??= new PIXI.Container()).addChild(g); gfxs.push([g, 1]);
-    }
+  for (const region of scene.regions) {
+    const trap = region.getFlag(ID, "trap"); if (!trap || region.getFlag(ID, "trapState")) continue;
+    const b = regionBounds(region); if (!(b.w > 0)) continue;
+    const seen = actors.some(a => (a.getFlag(ID, "revealed") ?? {})[tkey(scene, region)]);
+    if (!seen && !isGM) continue;
+    if (!isGM && !actors.some(ac => canSee(tokenFor(ac), b))) continue;
+    const a = (!seen && isGM) ? 0.3 : 1;
+    const g = new PIXI.Graphics();
+    g.lineStyle(5, 0xff2222, a).beginFill(0xff2222, 0.1 * a).drawRoundedRect(b.x, b.y, b.w, b.h, 10).endFill();
+    g.eventMode = "static"; g.cursor = "pointer"; g.hitArea = new PIXI.Rectangle(b.x, b.y, b.w, b.h);
+    g.on("pointerdown", (ev) => { ev.stopPropagation(); openTrap(region).catch(e => console.error(ID, e)); });
+    (poiLayer ??= new PIXI.Container()).addChild(g); gfxs.push([g, a]);
   }
   if (!poiLayer) return;
   poiLayer.eventMode = "passive";
