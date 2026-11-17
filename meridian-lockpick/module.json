@@ -2,7 +2,7 @@
   "id": "meridian-lockpick",
   "title": "Meridian Lockpick",
   "description": "Adds a lockpicking mechanic to locked Item Piles: click a locked pile, confirm, roll Thieves' Tools, spend game time, and risk snapping a lockpick.",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "compatibility": { "minimum": "13", "verified": "14" },
   "authors": [{ "name": "Evan" }],
   "esmodules": ["scripts/main.js"],
