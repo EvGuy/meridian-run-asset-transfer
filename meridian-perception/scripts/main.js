@@ -1,4 +1,4 @@
-// Meridian Perception 1.2.0 (Points of Interest: items are taken, details are investigated)
+// Meridian Perception 1.2.1 (Points of Interest: items are taken, details are investigated)
 // Region behavior "Room Perception": first entry by a player character -> secret skill roll -> whisper tiered text.
 const ID = "meridian-perception";
 const pending = new Set();
@@ -242,30 +242,40 @@ async function openPoi(region) {
       refreshPois();
       return;
     }
-    const done = (actor.getFlag(ID, "done") ?? {})[key];
-    const basic = `<div>${img}<p style="margin-top:.6em">${poi.basic ?? ""}</p></div>`;
-    if (done !== undefined) {
-      const prior = parseTiers(poi.tiers).filter(t => done >= t.min);
-      const txt = prior.length ? prior.map(t => `<p>${t.text}</p>`).join("") : `<p>You found nothing more.</p>`;
-      await foundry.applications.api.DialogV2.prompt({ window: { title: poi.name }, position: { width: 660 }, content: `${img}<p style="margin-top:.6em">${poi.basic ?? ""}</p><hr>${txt}`, ok: { label: "Close" }, rejectClose: false });
-      return;
+    const best = (actor.getFlag(ID, "done") ?? {})[key];
+    const secs = Number(poi.seconds ?? 20), all = parseTiers(poi.tiers);
+    const asText = (n) => { const m = all.filter(t => n >= t.min); return m.length ? m.map(t => `<p>${t.text}</p>`).join("") : `<p>You found nothing more.</p>`; };
+    const DV = foundry.applications.api.DialogV2;
+    let go;
+    if (best !== undefined) {
+      go = await DV.confirm({
+        window: { title: poi.name, icon: "fa-solid fa-magnifying-glass" }, position: { width: 660 },
+        content: `${img}<p style="margin-top:.6em">${poi.basic ?? ""}</p><hr><p><em>What you found:</em></p>${asText(best)}<p>Look again? Takes about ${secs} seconds. You only keep a new result if it beats your last.</p>`,
+        yes: { label: "Investigate again" }, no: { label: "Close" }, rejectClose: false
+      });
+    } else {
+      go = await DV.confirm({
+        window: { title: poi.name, icon: "fa-solid fa-magnifying-glass" }, position: { width: 660 },
+        content: `<div>${img}<p style="margin-top:.6em">${poi.basic ?? ""}</p></div><p>Investigate it? Takes about ${secs} seconds.</p>`,
+        yes: { label: "Investigate" }, no: { label: "Leave it" }, rejectClose: false
+      });
     }
-    const go = await foundry.applications.api.DialogV2.confirm({
-      window: { title: poi.name, icon: "fa-solid fa-magnifying-glass" }, position: { width: 660 },
-      content: `${basic}<p>Investigate it? Takes about ${poi.seconds ?? 20} seconds.</p>`,
-      yes: { label: "Investigate" }, no: { label: "Leave it" }, rejectClose: false
-    });
     if (!go) return;
-    const ok = await countdownPoi(poi, img, Number(poi.seconds ?? 20));
+    const ok = await countdownPoi(poi, img, secs);
     if (!ok) return;
     const total = await secretRoll(actor, poi.skill || "inv");
-    const tiers = parseTiers(poi.tiers).filter(t => total >= t.min);
-    await actor.setFlag(ID, "done", { ...(actor.getFlag(ID, "done") ?? {}), [key]: total });
-    const text = tiers.length ? tiers.map(t => `<p>${t.text}</p>`).join("") : `<p>You turn it over and find nothing more.</p>`;
-    const to = [...new Set([game.user.id, ...game.users.filter(u => u.isGM).map(u => u.id)])];
-    await ChatMessage.create({ speaker: { alias: `You investigate: ${poi.name}` }, whisper: to, content: `<div class="meridian-perception">${text}</div>` });
-    await ChatMessage.create({ speaker: { alias: "Point of Interest" }, whisper: game.users.filter(u => u.isGM).map(u => u.id), content: `<p><strong>${foundry.utils.escapeHTML(actor.name)}</strong> investigated <em>${foundry.utils.escapeHTML(poi.name)}</em>. Investigation <strong>${total}</strong>. ${tiers.length} of ${parseTiers(poi.tiers).length} tiers.</p>` });
-    await foundry.applications.api.DialogV2.prompt({ window: { title: poi.name }, position: { width: 660 }, content: `${img}<div style="margin-top:.6em">${text}</div>`, ok: { label: "Close" }, rejectClose: false });
+    const gms = game.users.filter(u => u.isGM).map(u => u.id);
+    const improved = best === undefined || total > best;
+    if (improved) {
+      await actor.setFlag(ID, "done", { ...(actor.getFlag(ID, "done") ?? {}), [key]: total });
+      const text = asText(total);
+      const to = [...new Set([game.user.id, ...gms])];
+      await ChatMessage.create({ speaker: { alias: `You investigate: ${poi.name}` }, whisper: to, content: `<div class="meridian-perception">${text}</div>` });
+      await DV.prompt({ window: { title: poi.name }, position: { width: 660 }, content: `${img}<div style="margin-top:.6em">${text}</div>`, ok: { label: "Close" }, rejectClose: false });
+    } else {
+      await DV.prompt({ window: { title: poi.name }, position: { width: 660 }, content: `${img}<p style="margin-top:.6em"><em>You look again and notice nothing new. Your earlier findings stand.</em></p>${asText(best)}`, ok: { label: "Close" }, rejectClose: false });
+    }
+    await ChatMessage.create({ speaker: { alias: "Point of Interest" }, whisper: gms, content: `<p><strong>${foundry.utils.escapeHTML(actor.name)}</strong> investigated <em>${foundry.utils.escapeHTML(poi.name)}</em>${best !== undefined ? " again" : ""}. Investigation <strong>${total}</strong>${best !== undefined ? ` (best ${Math.max(best, total)})` : ""}. ${all.filter(t => Math.max(best ?? 0, total) >= t.min).length} of ${all.length} tiers.</p>` });
     refreshPois();
   } finally { busyPoi.delete(lock); }
 }
@@ -280,7 +290,10 @@ function refreshPois() {
   const scene = canvas.scene; if (!scene || !canvas.ready) return;
   const isGM = game.user.isGM, actors = myActors(), gfxs = [];
   const sel = canvas.tokens.controlled.map(t => t.actor);
-  for (const region of scene.regions) {
+  const area = (r) => { const b = regionBounds(r); return (b.w > 0 ? b.w * b.h : 0); };
+  // Largest first so the smallest outline is drawn last, on top, and wins the click.
+  const ordered = [...scene.regions].filter(r => poiOf(r)).sort((a, b) => area(b) - area(a));
+  for (const region of ordered) {
     const poi = poiOf(region); if (!poi) continue;
     const key = pkey(scene, poi);
     if (region.getFlag(ID, "taken")) continue;
