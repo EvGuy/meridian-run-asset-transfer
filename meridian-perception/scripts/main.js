@@ -1,4 +1,4 @@
-// Meridian Perception 1.2.2 (Points of Interest: items are taken, details are investigated)
+// Meridian Perception 1.2.3 (Points of Interest: items are taken, details are investigated)
 // Region behavior "Room Perception": first entry by a player character -> secret skill roll -> whisper tiered text.
 const ID = "meridian-perception";
 const pending = new Set();
@@ -302,11 +302,22 @@ function refreshPois() {
     const done = actors.some(a => (a.getFlag(ID, "done") ?? {})[key] !== undefined);
     const b = regionBounds(region); if (!(b.w > 0)) continue;
     const g = new PIXI.Graphics();
-    const col = done ? 0x55aa55 : 0xff2222, a = (!seen && isGM) ? 0.3 : 1;
+    const col = done ? 0x2a8a45 : 0x3ddc5a, a = (!seen && isGM) ? 0.3 : 1;
     g.lineStyle(5, col, a).beginFill(col, 0.08 * a).drawRoundedRect(b.x, b.y, b.w, b.h, 10).endFill();
     g.eventMode = "static"; g.cursor = "pointer"; g.hitArea = new PIXI.Rectangle(b.x, b.y, b.w, b.h);
     g.on("pointerdown", (ev) => { ev.stopPropagation(); openPoi(region).catch(e => console.error(ID, e)); });
     (poiLayer ??= new PIXI.Container()).addChild(g); gfxs.push([g, a]);
+  }
+  if (isGM) {
+    for (const region of scene.regions) {
+      const trap = region.getFlag(ID, "trap"); if (!trap) continue;
+      const b = regionBounds(region); if (!(b.w > 0)) continue;
+      const g = new PIXI.Graphics();
+      g.lineStyle(5, 0xff2222, 1).beginFill(0xff2222, 0.1).drawRoundedRect(b.x, b.y, b.w, b.h, 10).endFill();
+      g.eventMode = "static"; g.cursor = "pointer"; g.hitArea = new PIXI.Rectangle(b.x, b.y, b.w, b.h);
+      g.on("pointerdown", (ev) => { ev.stopPropagation(); foundry.applications.api.DialogV2.prompt({ window: { title: trap.title ?? region.name, icon: "fa-solid fa-skull" }, position: { width: 520 }, content: `<div>${trap.text ?? ""}</div>`, ok: { label: "Close" }, rejectClose: false }); });
+      (poiLayer ??= new PIXI.Container()).addChild(g); gfxs.push([g, 1]);
+    }
   }
   if (!poiLayer) return;
   poiLayer.eventMode = "passive";
