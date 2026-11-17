@@ -262,11 +262,11 @@ async function openPoi(region) {
         if (region.getFlag(ID, "taken")) res = { ok: false, reason: "taken" };
         else if (!docs.length) res = { ok: false, reason: "noitem" };
         else { await region.setFlag(ID, "taken", actor.id); await actor.createEmbeddedDocuments("Item", docs); res = { ok: true, names: docs.map(d => d.name) }; }
-      } else res = await socket?.executeAsGM("takeItem", actor.uuid, region.uuid, names);
+      } else { try { res = await socket.executeAsGM("takeItem", actor.uuid, region.uuid, names); } catch (e) { console.warn(ID, e); res = { ok: false, reason: "nogm" }; } }
       if (res?.ok) {
         const to = [...new Set([game.user.id, ...game.users.filter(u => u.isGM).map(u => u.id)])];
         await ChatMessage.create({ speaker: { alias: "You take" }, whisper: to, content: `<div class="meridian-perception"><p>${res.names.join(", ")} added to ${foundry.utils.escapeHTML(actor.name)}'s inventory.</p></div>` });
-      } else ui.notifications.warn(res?.reason === "taken" ? "Someone already took it." : "That item could not be added.");
+      } else ui.notifications.warn(res?.reason === "taken" ? "Someone already took it." : res?.reason === "nogm" ? "The GM needs to be connected to hand that over." : "That item could not be added.");
       refreshPois();
       return;
     }
