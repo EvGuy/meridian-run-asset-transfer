@@ -2,7 +2,7 @@
   "id": "meridian-perception",
   "title": "Meridian Perception",
   "description": "Room Perception region behavior: the first time a player character enters a room, a secret Perception check is rolled and tiered, pre-written text is whispered to that player.",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "compatibility": { "minimum": "13", "verified": "14" },
   "authors": [{ "name": "Evan" }],
   "esmodules": ["scripts/main.js"],

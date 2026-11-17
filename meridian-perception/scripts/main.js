@@ -1,4 +1,4 @@
-// Meridian Perception 1.2.1 (Points of Interest: items are taken, details are investigated)
+// Meridian Perception 1.2.2 (Points of Interest: items are taken, details are investigated)
 // Region behavior "Room Perception": first entry by a player character -> secret skill roll -> whisper tiered text.
 const ID = "meridian-perception";
 const pending = new Set();
@@ -146,20 +146,20 @@ function myActors() {
 }
 
 function imageHtml(region, poi) {
-  if (poi.image) return `<img src="${poi.image}" style="display:block;width:100%;max-height:62vh;object-fit:contain;border:1px solid #555;border-radius:4px">`;
+  if (poi.image) return `<img src="${poi.image}" style="display:block;margin:0 auto;width:60%;max-height:38vh;object-fit:contain;border:1px solid #555;border-radius:4px">`;
   const sc = region.parent, bg = sc?.background?.src, b = regionBounds(region);
   if (!bg || !(b.w > 0)) return "";
   const pad = Math.max(b.w, b.h) * 0.6, rx = b.x - pad, ry = b.y - pad, rw = b.w + 2 * pad, rh = b.h + 2 * pad;
   const R = sc.dimensions.sceneRect, W = R.width, H = R.height;
   const px = Math.min(Math.max(rx - R.x, 0), W - rw), py = Math.min(Math.max(ry - R.y, 0), H - rh);
-  return `<div style="width:100%;aspect-ratio:${rw}/${rh};max-height:62vh;margin:auto;border:1px solid #555;border-radius:4px;background-image:url('${bg}');background-repeat:no-repeat;background-size:${(W / rw) * 100}% ${(H / rh) * 100}%;background-position:${(px / Math.max(W - rw, 1)) * 100}% ${(py / Math.max(H - rh, 1)) * 100}%"></div>`;
+  return `<div style="width:60%;aspect-ratio:${rw}/${rh};max-height:38vh;margin:0 auto;border:1px solid #555;border-radius:4px;background-image:url('${bg}');background-repeat:no-repeat;background-size:${(W / rw) * 100}% ${(H / rh) * 100}%;background-position:${(px / Math.max(W - rw, 1)) * 100}% ${(py / Math.max(H - rh, 1)) * 100}%"></div>`;
 }
 
 async function countdownPoi(poi, img, seconds) {
   let state = "run";
   const dlg = new foundry.applications.api.DialogV2({
     window: { title: poi.name, icon: "fa-solid fa-magnifying-glass" },
-    position: { width: 660 },
+    position: { width: 520 },
     content: `<div style="text-align:center">${img}<p class="mpoi-count" style="font-size:2.6em;margin:0.2em 0">${seconds}</p><progress class="mpoi-bar" max="${seconds}" value="0" style="width:100%"></progress><p style="opacity:.7">You study it closely.</p></div>`,
     buttons: [{ action: "done", label: "Done early", default: true, callback: () => { state = "early"; } }],
     rejectClose: false
@@ -223,7 +223,7 @@ async function openPoi(region) {
       const first = parseTiers(poi.tiers).find(t => t.min <= 1);
       const names = poi.items?.length ? poi.items : [poi.item].filter(Boolean);
       const take = await foundry.applications.api.DialogV2.confirm({
-        window: { title: poi.name, icon: "fa-solid fa-hand" }, position: { width: 660 },
+        window: { title: poi.name, icon: "fa-solid fa-hand" }, position: { width: 520 },
         content: `<div>${img}<p style="margin-top:.6em">${poi.basic ?? ""}</p>${first ? `<p>${first.text}</p>` : ""}</div>`,
         yes: { label: "Take it" }, no: { label: "Leave it" }, rejectClose: false
       });
@@ -249,13 +249,13 @@ async function openPoi(region) {
     let go;
     if (best !== undefined) {
       go = await DV.confirm({
-        window: { title: poi.name, icon: "fa-solid fa-magnifying-glass" }, position: { width: 660 },
+        window: { title: poi.name, icon: "fa-solid fa-magnifying-glass" }, position: { width: 520 },
         content: `${img}<p style="margin-top:.6em">${poi.basic ?? ""}</p><hr><p><em>What you found:</em></p>${asText(best)}<p>Look again? Takes about ${secs} seconds. You only keep a new result if it beats your last.</p>`,
         yes: { label: "Investigate again" }, no: { label: "Close" }, rejectClose: false
       });
     } else {
       go = await DV.confirm({
-        window: { title: poi.name, icon: "fa-solid fa-magnifying-glass" }, position: { width: 660 },
+        window: { title: poi.name, icon: "fa-solid fa-magnifying-glass" }, position: { width: 520 },
         content: `<div>${img}<p style="margin-top:.6em">${poi.basic ?? ""}</p></div><p>Investigate it? Takes about ${secs} seconds.</p>`,
         yes: { label: "Investigate" }, no: { label: "Leave it" }, rejectClose: false
       });
@@ -271,9 +271,9 @@ async function openPoi(region) {
       const text = asText(total);
       const to = [...new Set([game.user.id, ...gms])];
       await ChatMessage.create({ speaker: { alias: `You investigate: ${poi.name}` }, whisper: to, content: `<div class="meridian-perception">${text}</div>` });
-      await DV.prompt({ window: { title: poi.name }, position: { width: 660 }, content: `${img}<div style="margin-top:.6em">${text}</div>`, ok: { label: "Close" }, rejectClose: false });
+      await DV.prompt({ window: { title: poi.name }, position: { width: 520 }, content: `${img}<div style="margin-top:.6em">${text}</div>`, ok: { label: "Close" }, rejectClose: false });
     } else {
-      await DV.prompt({ window: { title: poi.name }, position: { width: 660 }, content: `${img}<p style="margin-top:.6em"><em>You look again and notice nothing new. Your earlier findings stand.</em></p>${asText(best)}`, ok: { label: "Close" }, rejectClose: false });
+      await DV.prompt({ window: { title: poi.name }, position: { width: 520 }, content: `${img}<p style="margin-top:.6em"><em>You look again and notice nothing new. Your earlier findings stand.</em></p>${asText(best)}`, ok: { label: "Close" }, rejectClose: false });
     }
     await ChatMessage.create({ speaker: { alias: "Point of Interest" }, whisper: gms, content: `<p><strong>${foundry.utils.escapeHTML(actor.name)}</strong> investigated <em>${foundry.utils.escapeHTML(poi.name)}</em>${best !== undefined ? " again" : ""}. Investigation <strong>${total}</strong>${best !== undefined ? ` (best ${Math.max(best, total)})` : ""}. ${all.filter(t => Math.max(best ?? 0, total) >= t.min).length} of ${all.length} tiers.</p>` });
     refreshPois();
