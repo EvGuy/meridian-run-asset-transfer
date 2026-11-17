@@ -1,4 +1,4 @@
-// Meridian Perception 1.0.0
+// Meridian Perception 1.1.0 (adds Points of Interest)
 // Region behavior "Room Perception": first entry by a player character -> secret skill roll -> whisper tiered text.
 const ID = "meridian-perception";
 const pending = new Set();
@@ -47,15 +47,17 @@ async function run(behavior, tokenDoc, { force = false } = {}) {
     const total = await secretRoll(actor, skill);
     const matched = tiers.filter(t => total >= t.min);
     const lines = cfg.stack ? matched : matched.slice(-1);
+    let found = 0;
+    try { found = await revealPois(actor, tokenDoc.parent, cfg.roomCode, total); } catch (e) { console.warn(ID, "poi reveal failed", e); }
     const region = behavior.parent;
     const label = cfg.roomCode ? `${cfg.roomCode} ${region?.name ?? ""}`.trim() : (region?.name ?? "Room");
-    if (lines.length) {
+    if (lines.length || found) {
       const to = recipients(actor);
       const whisper = to.length ? to : game.users.filter(u => u.isGM).map(u => u.id);
       await ChatMessage.create({
         speaker: { alias: "You notice" },
         whisper,
-        content: `<div class="meridian-perception">${lines.map(l => `<p>${l.text}</p>`).join("")}</div>`,
+        content: `<div class="meridian-perception">${lines.map(l => `<p>${l.text}</p>`).join("")}${found ? `<p><em>Something here is worth a closer look. Look for the red outline.</em></p>` : ""}</div>`,
         flags: { [ID]: { actorId: actor.id, region: region?.uuid } }
       });
     }
@@ -63,7 +65,7 @@ async function run(behavior, tokenDoc, { force = false } = {}) {
       await ChatMessage.create({
         speaker: { alias: "Room Perception" },
         whisper: game.users.filter(u => u.isGM).map(u => u.id),
-        content: `<p><strong>${foundry.utils.escapeHTML(actor.name)}</strong> entered <em>${foundry.utils.escapeHTML(label)}</em>. ${skill.toUpperCase()} <strong>${total}</strong>. ${lines.length ? `Whispered ${lines.length} of ${tiers.length} tiers.` : "Noticed nothing; nothing whispered."}</p>`
+        content: `<p><strong>${foundry.utils.escapeHTML(actor.name)}</strong> entered <em>${foundry.utils.escapeHTML(label)}</em>. ${skill.toUpperCase()} <strong>${total}</strong>. ${lines.length ? `Whispered ${lines.length} of ${tiers.length} tiers.${found ? ` Revealed ${found} point(s) of interest.` : ""}` : "Noticed nothing; nothing whispered."}</p>`
       });
     }
     return { actor: actor.name, total, delivered: lines.length, tiers: tiers.length };
@@ -102,6 +104,156 @@ function behaviorsOf(region) {
   return region.behaviors.filter(b => b.type === `${ID}.room`);
 }
 
+
+// ---------------------------------------------------------------------------
+// Points of Interest. A Region carrying flags.meridian-perception.poi:
+// { id, room, name, kind: "detail"|"item", reveal, image, basic, tiers:[{min,text}], seconds, skill }
+// Perception total >= reveal (in the room whose roomCode == poi.room) reveals it to that character
+// (actor flag "revealed"). The owner sees a red outline, clicks it, reads the basic text, may investigate:
+// timer, secret roll, stacked tiers. Result recorded in actor flag "done".
+// ---------------------------------------------------------------------------
+const poiOf = (region) => region.getFlag(ID, "poi");
+const pkey = (scene, poi) => `${scene.id}_${poi.id}`;
+
+async function revealPois(actor, scene, roomCode, total) {
+  if (!roomCode || !scene) return 0;
+  const cur = actor.getFlag(ID, "revealed") ?? {};
+  const add = {}; let n = 0;
+  for (const r of scene.regions) {
+    const p = poiOf(r);
+    if (!p || p.room !== roomCode || total < Number(p.reveal ?? 0)) continue;
+    const k = pkey(scene, p);
+    if (cur[k]) continue;
+    add[k] = true; n++;
+  }
+  if (n) await actor.setFlag(ID, "revealed", { ...cur, ...add });
+  return n;
+}
+
+function regionBounds(region) {
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const sh of region.shapes) {
+    if (sh.type === "rectangle") { x0 = Math.min(x0, sh.x); y0 = Math.min(y0, sh.y); x1 = Math.max(x1, sh.x + sh.width); y1 = Math.max(y1, sh.y + sh.height); }
+    else if (sh.type === "polygon") { for (let i = 0; i < sh.points.length; i += 2) { x0 = Math.min(x0, sh.points[i]); x1 = Math.max(x1, sh.points[i]); y0 = Math.min(y0, sh.points[i + 1]); y1 = Math.max(y1, sh.points[i + 1]); } }
+    else if (sh.type === "circle" || sh.type === "ellipse") { const rx = sh.radius ?? sh.radiusX, ry = sh.radius ?? sh.radiusY; x0 = Math.min(x0, sh.x - rx); x1 = Math.max(x1, sh.x + rx); y0 = Math.min(y0, sh.y - ry); y1 = Math.max(y1, sh.y + ry); }
+  }
+  return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+}
+
+function myActors() {
+  return canvas.tokens.placeables.filter(t => t.isOwner && t.actor?.type === "character").map(t => t.actor)
+    .filter((a, i, arr) => arr.indexOf(a) === i);
+}
+
+function imageHtml(region, poi) {
+  if (poi.image) return `<img src="${poi.image}" style="display:block;width:100%;max-height:62vh;object-fit:contain;border:1px solid #555;border-radius:4px">`;
+  const sc = region.parent, bg = sc?.background?.src, b = regionBounds(region);
+  if (!bg || !(b.w > 0)) return "";
+  const pad = Math.max(b.w, b.h) * 0.6, rx = b.x - pad, ry = b.y - pad, rw = b.w + 2 * pad, rh = b.h + 2 * pad;
+  const R = sc.dimensions.sceneRect, W = R.width, H = R.height;
+  const px = Math.min(Math.max(rx - R.x, 0), W - rw), py = Math.min(Math.max(ry - R.y, 0), H - rh);
+  return `<div style="width:100%;aspect-ratio:${rw}/${rh};max-height:62vh;margin:auto;border:1px solid #555;border-radius:4px;background-image:url('${bg}');background-repeat:no-repeat;background-size:${(W / rw) * 100}% ${(H / rh) * 100}%;background-position:${(px / Math.max(W - rw, 1)) * 100}% ${(py / Math.max(H - rh, 1)) * 100}%"></div>`;
+}
+
+async function countdownPoi(poi, img, seconds) {
+  let state = "run";
+  const dlg = new foundry.applications.api.DialogV2({
+    window: { title: poi.name, icon: "fa-solid fa-magnifying-glass" },
+    position: { width: 660 },
+    content: `<div style="text-align:center">${img}<p class="mpoi-count" style="font-size:2.6em;margin:0.2em 0">${seconds}</p><progress class="mpoi-bar" max="${seconds}" value="0" style="width:100%"></progress><p style="opacity:.7">You study it closely.</p></div>`,
+    buttons: [{ action: "done", label: "Done early", default: true, callback: () => { state = "early"; } }],
+    rejectClose: false
+  });
+  await dlg.render({ force: true });
+  let left = seconds;
+  await new Promise((resolve) => {
+    const iv = setInterval(() => {
+      if (!dlg.rendered) { if (state === "run") state = "cancel"; clearInterval(iv); resolve(); return; }
+      if (state === "early") { clearInterval(iv); resolve(); return; }
+      left -= 1;
+      const el = dlg.element;
+      const c = el?.querySelector(".mpoi-count"); if (c) c.textContent = String(Math.max(left, 0));
+      const bar = el?.querySelector(".mpoi-bar"); if (bar) bar.value = seconds - Math.max(left, 0);
+      if (left <= 0) { clearInterval(iv); resolve(); }
+    }, 1000);
+  });
+  if (dlg.rendered) await dlg.close();
+  return state !== "cancel";
+}
+
+const busyPoi = new Set();
+async function openPoi(region) {
+  const poi = poiOf(region), scene = region.parent;
+  if (!poi) return;
+  const sel = canvas.tokens.controlled.map(t => t.actor).find(a => a && a.isOwner && a.type === "character");
+  const mine = myActors();
+  const actor = sel ?? mine.find(a => (a.getFlag(ID, "revealed") ?? {})[pkey(scene, poi)]) ?? mine[0];
+  if (!actor) { ui.notifications.warn("Select your character first."); return; }
+  const key = pkey(scene, poi), lock = `${actor.id}${key}`;
+  if (busyPoi.has(lock)) return;
+  busyPoi.add(lock);
+  try {
+    const done = (actor.getFlag(ID, "done") ?? {})[key];
+    const img = imageHtml(region, poi);
+    const basic = `<div>${img}<p style="margin-top:.6em">${poi.basic ?? ""}</p></div>`;
+    if (done !== undefined) {
+      await foundry.applications.api.DialogV2.prompt({ window: { title: poi.name }, position: { width: 660 }, content: `${basic}<p><em>You have already looked this over.</em></p>`, ok: { label: "Close" }, rejectClose: false });
+      return;
+    }
+    const go = await foundry.applications.api.DialogV2.confirm({
+      window: { title: poi.name, icon: "fa-solid fa-magnifying-glass" }, position: { width: 660 },
+      content: `${basic}<p>Investigate it? Takes about ${poi.seconds ?? 20} seconds.</p>`,
+      yes: { label: "Investigate" }, no: { label: "Leave it" }, rejectClose: false
+    });
+    if (!go) return;
+    const ok = await countdownPoi(poi, img, Number(poi.seconds ?? 20));
+    if (!ok) return;
+    const total = await secretRoll(actor, poi.skill || "inv");
+    const tiers = parseTiers(poi.tiers).filter(t => total >= t.min);
+    await actor.setFlag(ID, "done", { ...(actor.getFlag(ID, "done") ?? {}), [key]: total });
+    const text = tiers.length ? tiers.map(t => `<p>${t.text}</p>`).join("") : `<p>You turn it over and find nothing more.</p>`;
+    const to = [...new Set([game.user.id, ...game.users.filter(u => u.isGM).map(u => u.id)])];
+    await ChatMessage.create({ speaker: { alias: `You investigate: ${poi.name}` }, whisper: to, content: `<div class="meridian-perception">${text}</div>` });
+    await ChatMessage.create({ speaker: { alias: "Point of Interest" }, whisper: game.users.filter(u => u.isGM).map(u => u.id), content: `<p><strong>${foundry.utils.escapeHTML(actor.name)}</strong> investigated <em>${foundry.utils.escapeHTML(poi.name)}</em>. Investigation <strong>${total}</strong>. ${tiers.length} of ${parseTiers(poi.tiers).length} tiers.</p>` });
+    await foundry.applications.api.DialogV2.prompt({ window: { title: poi.name }, position: { width: 660 }, content: `${img}<div style="margin-top:.6em">${text}</div>`, ok: { label: "Close" }, rejectClose: false });
+    refreshPois();
+  } finally { busyPoi.delete(lock); }
+}
+
+let poiLayer = null, poiTick = null;
+function clearPois() {
+  if (poiTick) { canvas.app.ticker.remove(poiTick); poiTick = null; }
+  if (poiLayer) { poiLayer.destroy({ children: true }); poiLayer = null; }
+}
+function refreshPois() {
+  clearPois();
+  const scene = canvas.scene; if (!scene || !canvas.ready) return;
+  const isGM = game.user.isGM, actors = myActors(), gfxs = [];
+  const sel = canvas.tokens.controlled.map(t => t.actor);
+  for (const region of scene.regions) {
+    const poi = poiOf(region); if (!poi) continue;
+    const key = pkey(scene, poi);
+    const seen = actors.some(a => (a.getFlag(ID, "revealed") ?? {})[key]);
+    if (!seen && !isGM) continue;
+    const done = actors.some(a => (a.getFlag(ID, "done") ?? {})[key] !== undefined);
+    const b = regionBounds(region); if (!(b.w > 0)) continue;
+    const g = new PIXI.Graphics();
+    const col = done ? 0x55aa55 : 0xff2222, a = (!seen && isGM) ? 0.3 : 1;
+    g.lineStyle(5, col, a).beginFill(col, 0.08 * a).drawRoundedRect(b.x, b.y, b.w, b.h, 10).endFill();
+    g.eventMode = "static"; g.cursor = "pointer"; g.hitArea = new PIXI.Rectangle(b.x, b.y, b.w, b.h);
+    g.on("pointerdown", (ev) => { ev.stopPropagation(); openPoi(region).catch(e => console.error(ID, e)); });
+    (poiLayer ??= new PIXI.Container()).addChild(g); gfxs.push([g, a]);
+  }
+  if (!poiLayer) return;
+  poiLayer.eventMode = "passive";
+  canvas.interface.addChild(poiLayer);
+  let t = 0;
+  poiTick = (dt) => { t += dt.deltaTime ?? dt; const pulse = 0.65 + 0.35 * Math.sin(t / 12); for (const [g, a] of gfxs) g.alpha = pulse * a; };
+  canvas.app.ticker.add(poiTick);
+}
+for (const h of ["canvasReady", "updateActor", "controlToken", "updateRegion", "createRegion", "deleteRegion", "updateToken"]) Hooks.on(h, () => { try { refreshPois(); } catch (e) { console.warn(ID, e); } });
+Hooks.on("canvasTearDown", clearPois);
+
 Hooks.once("ready", () => {
   game.modules.get(ID).api = {
     /** GM: trigger a region's perception for tokens already inside it. Defaults to controlled tokens. */
@@ -114,6 +266,11 @@ Hooks.once("ready", () => {
     /** GM: forget who has been through a region so everyone gets it again. */
     async reset(region) { for (const b of behaviorsOf(region)) await b.unsetFlag(ID, "seen"); return true; },
     async resetScene(scene = canvas.scene) { for (const r of scene.regions) await this.reset(r); return scene.regions.size; },
-    parseTiers
+    parseTiers,
+    /** GM: add/replace a point of interest on a region. */
+    async setPoi(region, poi) { await region.setFlag(ID, "poi", poi); return poi; },
+    /** GM: forget reveals/investigations for every character. */
+    async resetPois() { for (const a of game.actors) { await a.unsetFlag(ID, "revealed"); await a.unsetFlag(ID, "done"); } return true; },
+    refreshPois
   };
 });
