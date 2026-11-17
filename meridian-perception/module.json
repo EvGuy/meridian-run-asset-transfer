@@ -2,13 +2,14 @@
   "id": "meridian-perception",
   "title": "Meridian Perception",
   "description": "Room Perception region behavior: the first time a player character enters a room, a secret Perception check is rolled and tiered, pre-written text is whispered to that player.",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "compatibility": { "minimum": "13", "verified": "14" },
   "authors": [{ "name": "Evan" }],
   "esmodules": ["scripts/main.js"],
   "languages": [{ "lang": "en", "name": "English", "path": "languages/en.json" }],
   "relationships": {
-    "systems": [{ "id": "dnd5e", "type": "system", "compatibility": {} }]
+    "systems": [{ "id": "dnd5e", "type": "system", "compatibility": {} }],
+    "requires": [{ "id": "socketlib", "type": "module" }]
   },
   "documentTypes": { "RegionBehavior": { "room": {} } },
   "manifest": "https://raw.githubusercontent.com/EvGuy/meridian-run-asset-transfer./main/meridian-perception/module.json",

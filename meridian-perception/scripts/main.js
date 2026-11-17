@@ -1,4 +1,4 @@
-// Meridian Perception 1.1.0 (adds Points of Interest)
+// Meridian Perception 1.2.0 (Points of Interest: items are taken, details are investigated)
 // Region behavior "Room Perception": first entry by a player character -> secret skill roll -> whisper tiered text.
 const ID = "meridian-perception";
 const pending = new Set();
@@ -181,6 +181,30 @@ async function countdownPoi(poi, img, seconds) {
   return state !== "cancel";
 }
 
+
+let socket;
+function setupSocket() {
+  if (socket || typeof socketlib === "undefined") return;
+  socket = socketlib.registerModule(ID);
+  socket.register("takeItem", async (actorUuid, regionUuid, names) => {
+    const actor = await fromUuid(actorUuid), region = await fromUuid(regionUuid);
+    if (!actor || !region) return { ok: false, reason: "missing" };
+    if (region.getFlag(ID, "taken")) return { ok: false, reason: "taken" };
+    const docs = [];
+    for (const n of names) {
+      const it = game.items.getName(n);
+      if (it) docs.push(it.toObject()); else console.warn(ID, "world item not found", n);
+    }
+    if (!docs.length) return { ok: false, reason: "noitem" };
+    await region.setFlag(ID, "taken", actor.id);
+    await actor.createEmbeddedDocuments("Item", docs);
+    return { ok: true, names: docs.map(d => d.name) };
+  });
+}
+Hooks.once("socketlib.ready", setupSocket);
+Hooks.once("init", setupSocket);
+Hooks.once("setup", setupSocket);
+
 const busyPoi = new Set();
 async function openPoi(region) {
   const poi = poiOf(region), scene = region.parent;
@@ -193,11 +217,37 @@ async function openPoi(region) {
   if (busyPoi.has(lock)) return;
   busyPoi.add(lock);
   try {
-    const done = (actor.getFlag(ID, "done") ?? {})[key];
     const img = imageHtml(region, poi);
+    if (poi.kind === "item") {
+      if (region.getFlag(ID, "taken")) { refreshPois(); return; }
+      const first = parseTiers(poi.tiers).find(t => t.min <= 1);
+      const names = poi.items?.length ? poi.items : [poi.item].filter(Boolean);
+      const take = await foundry.applications.api.DialogV2.confirm({
+        window: { title: poi.name, icon: "fa-solid fa-hand" }, position: { width: 660 },
+        content: `<div>${img}<p style="margin-top:.6em">${poi.basic ?? ""}</p>${first ? `<p>${first.text}</p>` : ""}</div>`,
+        yes: { label: "Take it" }, no: { label: "Leave it" }, rejectClose: false
+      });
+      if (!take) return;
+      let res;
+      if (game.user.isGM) {
+        const docs = names.map(n => game.items.getName(n)?.toObject()).filter(Boolean);
+        if (region.getFlag(ID, "taken")) res = { ok: false, reason: "taken" };
+        else if (!docs.length) res = { ok: false, reason: "noitem" };
+        else { await region.setFlag(ID, "taken", actor.id); await actor.createEmbeddedDocuments("Item", docs); res = { ok: true, names: docs.map(d => d.name) }; }
+      } else res = await socket?.executeAsGM("takeItem", actor.uuid, region.uuid, names);
+      if (res?.ok) {
+        const to = [...new Set([game.user.id, ...game.users.filter(u => u.isGM).map(u => u.id)])];
+        await ChatMessage.create({ speaker: { alias: "You take" }, whisper: to, content: `<div class="meridian-perception"><p>${res.names.join(", ")} added to ${foundry.utils.escapeHTML(actor.name)}'s inventory.</p></div>` });
+      } else ui.notifications.warn(res?.reason === "taken" ? "Someone already took it." : "That item could not be added.");
+      refreshPois();
+      return;
+    }
+    const done = (actor.getFlag(ID, "done") ?? {})[key];
     const basic = `<div>${img}<p style="margin-top:.6em">${poi.basic ?? ""}</p></div>`;
     if (done !== undefined) {
-      await foundry.applications.api.DialogV2.prompt({ window: { title: poi.name }, position: { width: 660 }, content: `${basic}<p><em>You have already looked this over.</em></p>`, ok: { label: "Close" }, rejectClose: false });
+      const prior = parseTiers(poi.tiers).filter(t => done >= t.min);
+      const txt = prior.length ? prior.map(t => `<p>${t.text}</p>`).join("") : `<p>You found nothing more.</p>`;
+      await foundry.applications.api.DialogV2.prompt({ window: { title: poi.name }, position: { width: 660 }, content: `${img}<p style="margin-top:.6em">${poi.basic ?? ""}</p><hr>${txt}`, ok: { label: "Close" }, rejectClose: false });
       return;
     }
     const go = await foundry.applications.api.DialogV2.confirm({
@@ -233,6 +283,7 @@ function refreshPois() {
   for (const region of scene.regions) {
     const poi = poiOf(region); if (!poi) continue;
     const key = pkey(scene, poi);
+    if (region.getFlag(ID, "taken")) continue;
     const seen = actors.some(a => (a.getFlag(ID, "revealed") ?? {})[key]);
     if (!seen && !isGM) continue;
     const done = actors.some(a => (a.getFlag(ID, "done") ?? {})[key] !== undefined);
@@ -255,6 +306,7 @@ for (const h of ["canvasReady", "updateActor", "controlToken", "updateRegion", "
 Hooks.on("canvasTearDown", clearPois);
 
 Hooks.once("ready", () => {
+  setupSocket();
   game.modules.get(ID).api = {
     /** GM: trigger a region's perception for tokens already inside it. Defaults to controlled tokens. */
     async trigger(region, tokens, { force = true } = {}) {
@@ -270,7 +322,7 @@ Hooks.once("ready", () => {
     /** GM: add/replace a point of interest on a region. */
     async setPoi(region, poi) { await region.setFlag(ID, "poi", poi); return poi; },
     /** GM: forget reveals/investigations for every character. */
-    async resetPois() { for (const a of game.actors) { await a.unsetFlag(ID, "revealed"); await a.unsetFlag(ID, "done"); } return true; },
+    async resetPois(scene = canvas.scene) { for (const a of game.actors) { await a.unsetFlag(ID, "revealed"); await a.unsetFlag(ID, "done"); } for (const r of scene?.regions ?? []) await r.unsetFlag(ID, "taken"); return true; },
     refreshPois
   };
 });
