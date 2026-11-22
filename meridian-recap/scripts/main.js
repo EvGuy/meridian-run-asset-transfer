@@ -147,6 +147,7 @@ class RecapPlayer {
     el.className = "mrecap-overlay";
     el.innerHTML = `
       <div class="mrecap-frame">
+        <i class="mrecap-corner tl"></i><i class="mrecap-corner tr"></i><i class="mrecap-corner bl"></i><i class="mrecap-corner br"></i><i class="mrecap-edge top"></i><i class="mrecap-edge bot"></i>
         <div class="mrecap-picture"><div class="mrecap-stage ${r.pan ? "mrecap-pan" : ""}"><div class="mrecap-base"></div><div class="mrecap-tiles"></div></div><div class="mrecap-vignette"></div></div>
         <div class="mrecap-text"><div class="mrecap-scroll"><h2 class="mrecap-title">${esc(r.title)}</h2><div class="mrecap-body">${this.parsed.paragraphs.map((p) => `<p>${esc(p).replace(/\n/g, "<br>")}</p>`).join("")}</div></div></div>
         <div class="mrecap-controls"></div>
