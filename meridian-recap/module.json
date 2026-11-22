@@ -13,5 +13,5 @@
     "requires": [{ "id": "socketlib", "type": "module" }]
   },
   "manifest": "https://raw.githubusercontent.com/EvGuy/meridian-run-asset-transfer/main/meridian-recap/module.json",
-  "download": "https://raw.githubusercontent.com/EvGuy/meridian-run-asset-transfer/3a547c1debcc9893ac02a7fa1ff4e623338d3b98/meridian-recap/meridian-recap.zip"
+  "download": "https://raw.githubusercontent.com/EvGuy/meridian-run-asset-transfer/f3a26651c689861d07bdede489c8bf97c78c7053/meridian-recap/meridian-recap.zip"
 }
