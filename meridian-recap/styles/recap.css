@@ -1,0 +1,86 @@
+@font-face { font-family: "MR IM Fell"; src: url("../fonts/im-fell-english-latin-400-normal.woff2") format("woff2"); font-weight: 400; font-style: normal; }
+@font-face { font-family: "MR IM Fell"; src: url("../fonts/im-fell-english-latin-400-italic.woff2") format("woff2"); font-weight: 400; font-style: italic; }
+@font-face { font-family: "MR Cinzel"; src: url("../fonts/cinzel-latin-400-normal.woff2") format("woff2"); font-weight: 400; }
+@font-face { font-family: "MR Cinzel"; src: url("../fonts/cinzel-latin-700-normal.woff2") format("woff2"); font-weight: 700; }
+@font-face { font-family: "MR Cinzel Deco"; src: url("../fonts/cinzel-decorative-latin-700-normal.woff2") format("woff2"); font-weight: 700; }
+
+/* ---------- Player overlay ---------- */
+.mrecap-overlay {
+  position: fixed; inset: 0; z-index: 100000; display: flex; align-items: center; justify-content: center;
+  background: radial-gradient(ellipse at center, #120d08 0%, #000 78%);
+  opacity: 0; transition: opacity 1.2s ease;
+}
+.mrecap-overlay.mrecap-in { opacity: 1; }
+.mrecap-frame {
+  position: relative; width: min(1040px, 95vw); height: min(94vh, 900px);
+  display: flex; flex-direction: column; padding: 14px;
+  background: linear-gradient(180deg, #2a1d10, #17100a);
+  border: 3px solid #8a6a2c; border-radius: 6px;
+  box-shadow: 0 0 0 2px #2b1c08, 0 0 0 5px #b8923f, 0 0 0 7px #2b1c08, 0 0 60px 10px rgba(0,0,0,.9), inset 0 0 30px #000;
+}
+.mrecap-picture {
+  position: relative; flex: 0 0 46%; overflow: hidden; background: #000;
+  border: 2px solid #b8923f; box-shadow: inset 0 0 0 2px #2b1c08, inset 0 0 40px #000;
+}
+.mrecap-stage { position: absolute; inset: 0; transform-origin: 50% 50%; }
+.mrecap-stage.mrecap-pan { animation: mrecap-pan 45s linear infinite alternate; }
+@keyframes mrecap-pan { from { transform: scale(1) translate(0,0); } to { transform: scale(1.09) translate(-1.2%, -1%); } }
+.mrecap-base { position: absolute; inset: 0; background-size: cover; background-position: center; }
+.mrecap-tiles { position: absolute; inset: 0; display: grid; }
+.mrecap-tile { opacity: 0; background-repeat: no-repeat; transition: opacity .55s ease; }
+.mrecap-tile.mrecap-show { opacity: 1; }
+.mrecap-vignette { position: absolute; inset: 0; pointer-events: none; box-shadow: inset 0 0 80px 10px rgba(0,0,0,.75); }
+.mrecap-text {
+  position: relative; flex: 1 1 auto; margin-top: 12px; overflow: hidden;
+  background: radial-gradient(ellipse at center, #1d140c 0%, #0c0805 100%);
+  border: 2px solid #b8923f; box-shadow: inset 0 0 0 2px #2b1c08, inset 0 0 40px #000;
+  -webkit-mask-image: none;
+}
+.mrecap-text::before, .mrecap-text::after { content: ""; position: absolute; left: 0; right: 0; height: 14%; z-index: 2; pointer-events: none; }
+.mrecap-text::before { top: 0; background: linear-gradient(#0c0805, transparent); }
+.mrecap-text::after { bottom: 0; background: linear-gradient(transparent, #0c0805); }
+.mrecap-scroll { position: absolute; left: 0; right: 0; top: 0; padding: 0 9%; will-change: transform; }
+.mrecap-title {
+  margin: 0 0 1.1em; text-align: center; font-family: "MR Cinzel Deco", "MR Cinzel", Georgia, serif; font-weight: 700;
+  font-size: clamp(1.5rem, 3.2vw, 2.4rem); letter-spacing: .08em; color: #e0b95a; text-shadow: 0 0 14px rgba(224,185,90,.45), 0 2px 2px #000;
+  border: 0; padding: 0;
+}
+.mrecap-body p {
+  margin: 0 0 1.15em; font-family: "MR IM Fell", "Palatino Linotype", Georgia, serif; font-size: clamp(1.05rem, 2vw, 1.55rem);
+  line-height: 1.6; color: #e7d8b6; text-align: justify; text-shadow: 0 1px 2px #000;
+}
+.mrecap-body p:first-child::first-letter {
+  float: left; font-family: "MR Cinzel Deco", "MR Cinzel", serif; font-weight: 700; color: #e0b95a;
+  font-size: 3.6em; line-height: .85; padding: .05em .12em 0 0; text-shadow: 0 0 10px rgba(224,185,90,.5);
+}
+.mrecap-controls { position: absolute; right: 22px; bottom: 20px; z-index: 5; display: flex; gap: 8px; opacity: .25; transition: opacity .4s; }
+.mrecap-frame:hover .mrecap-controls, .mrecap-controls.mrecap-end { opacity: 1; }
+.mrecap-btn {
+  font-family: "MR Cinzel", Georgia, serif; font-size: .85rem; letter-spacing: .1em; text-transform: uppercase; cursor: pointer;
+  color: #e0b95a; background: linear-gradient(#3a2813, #1c1209); border: 1px solid #b8923f; border-radius: 3px; padding: 6px 16px; line-height: 1.4;
+}
+.mrecap-btn:hover { color: #fff1c8; box-shadow: 0 0 10px rgba(224,185,90,.5); }
+.mrecap-gate {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); z-index: 6; font-size: 1.1rem; padding: 12px 26px;
+}
+
+/* ---------- Recap Studio ---------- */
+.mrs { display: flex; flex-direction: column; gap: 10px; padding: 8px 10px; font-size: 13px; }
+.mrs fieldset { border: 1px solid var(--color-border-light-tertiary, #7a7971); border-radius: 4px; padding: 6px 10px 10px; margin: 0; }
+.mrs legend { font-weight: 700; padding: 0 6px; }
+.mrs .mrs-row { display: flex; gap: 6px; align-items: center; margin-top: 6px; flex-wrap: wrap; }
+.mrs .mrs-row > label { min-width: 90px; }
+.mrs input[type="text"], .mrs input[type="number"], .mrs select { flex: 1; min-width: 80px; }
+.mrs input[type="number"] { max-width: 90px; flex: 0 0 90px; }
+.mrs textarea { width: 100%; min-height: 220px; font-family: Georgia, serif; font-size: 14px; resize: vertical; }
+.mrs textarea.mrs-small { min-height: 60px; font-family: monospace; font-size: 11px; }
+.mrs .mrs-pic { display: flex; gap: 6px; align-items: center; padding: 4px; border: 1px solid var(--color-border-light-tertiary, #7a7971); border-radius: 4px; margin-top: 6px; }
+.mrs .mrs-pic img { width: 64px; height: 40px; object-fit: cover; border-radius: 2px; background: #000; }
+.mrs .mrs-num { font-weight: 700; width: 22px; text-align: center; }
+.mrs button { line-height: 1.4; }
+.mrs .mrs-rec.mrs-live { background: #8b1a1a; color: #fff; animation: mrs-pulse 1s infinite; }
+@keyframes mrs-pulse { 50% { opacity: .6; } }
+.mrs .mrs-hint { opacity: .7; font-size: 12px; margin: 4px 0 0; }
+.mrs audio { width: 100%; height: 32px; margin-top: 6px; }
+.mrs .mrs-actions { display: flex; gap: 6px; flex-wrap: wrap; position: sticky; bottom: 0; padding: 6px 0; background: var(--color-bg, #1a1a1a); }
+.mrs .mrs-actions button { flex: 1; }
