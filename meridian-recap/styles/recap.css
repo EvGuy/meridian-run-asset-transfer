@@ -42,11 +42,11 @@
 .mrecap-scroll { position: absolute; left: 0; right: 0; top: 0; padding: 0 9%; will-change: transform; }
 .mrecap-title {
   margin: 0 0 1.1em; text-align: center; font-family: "MR Cinzel Deco", "MR Cinzel", Georgia, serif; font-weight: 700;
-  font-size: clamp(1.5rem, 3.2vw, 2.4rem); letter-spacing: .08em; color: #e0b95a; text-shadow: 0 0 14px rgba(224,185,90,.45), 0 2px 2px #000;
+  font-size: calc(clamp(1.5rem, 3.2vw, 2.4rem) * var(--mr-scale, 1)); letter-spacing: .08em; color: #e0b95a; text-shadow: 0 0 14px rgba(224,185,90,.45), 0 2px 2px #000;
   border: 0; padding: 0;
 }
 .mrecap-body p {
-  margin: 0 0 1.15em; font-family: "MR IM Fell", "Palatino Linotype", Georgia, serif; font-size: clamp(1.05rem, 2vw, 1.55rem);
+  margin: 0 0 1.15em; font-family: "MR IM Fell", "Palatino Linotype", Georgia, serif; font-size: calc(clamp(1.05rem, 2vw, 1.55rem) * var(--mr-scale, 1));
   line-height: 1.6; color: #e7d8b6; text-align: justify; text-shadow: 0 1px 2px #000;
 }
 .mrecap-body p:first-child::first-letter {

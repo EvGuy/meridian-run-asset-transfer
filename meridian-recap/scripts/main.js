@@ -1,4 +1,4 @@
-/* Meridian Recap 1.1.1
+/* Meridian Recap 1.2.0
  * GM-authored Baldur's Gate 2 style chapter recap. Studio (GM) + overlay player (everyone).
  * Data: JournalEntry in folder "Recaps", flags.meridian-recap.recap.
  */
@@ -15,6 +15,7 @@ const DEFAULTS = {
   music: "",
   musicVolume: 0.5,
   voiceVolume: 1,
+  voiceDuration: 0,
   musicLoop: true,
   timingsJson: "",
   leadIn: 4,
@@ -22,6 +23,10 @@ const DEFAULTS = {
   fadeOut: 4,
   scrollSeconds: 90,
   tiles: true,
+  transition: "mosaic",
+  duck: 0.6,
+  textScale: 1,
+  autoClose: 0,
   tileSize: 56,
   pan: true
 };
@@ -39,6 +44,26 @@ function normalize(data) {
   const d = foundry.utils.mergeObject(foundry.utils.deepClone(DEFAULTS), data ?? {}, { inplace: false });
   d.pictures = (data?.pictures ?? []).map((p) => ({ src: p.src ?? "", label: p.label ?? "" }));
   return d;
+}
+
+/** Duration of an audio element. MediaRecorder WebM files report Infinity; a far seek makes the browser compute the real length. */
+async function mediaDuration(audio, timeout = 6000) {
+  if (audio.readyState < 1) {
+    await new Promise((res) => {
+      const t = setTimeout(res, timeout);
+      audio.addEventListener("loadedmetadata", () => { clearTimeout(t); res(); }, { once: true });
+      audio.addEventListener("error", () => { clearTimeout(t); res(); }, { once: true });
+    });
+  }
+  if (audio.duration === Infinity) {
+    await new Promise((res) => {
+      const t = setTimeout(res, 4000);
+      audio.addEventListener("durationchange", () => { clearTimeout(t); res(); }, { once: true });
+      audio.currentTime = 1e7;
+    });
+    audio.currentTime = 0;
+  }
+  return Number.isFinite(audio.duration) && audio.duration > 0 ? audio.duration : null;
 }
 
 /** Parse the script into clean narration text + scene markers (char index into clean text). */
@@ -97,18 +122,16 @@ class RecapPlayer {
     // audio
     if (r.voice) {
       this.voice = new Audio(r.voice); this.voice.preload = "auto";
-      await new Promise((res) => {
-        const t = setTimeout(res, 6000);
-        this.voice.addEventListener("loadedmetadata", () => { clearTimeout(t); res(); }, { once: true });
-        this.voice.addEventListener("error", () => { clearTimeout(t); res(); }, { once: true });
-      });
-      if (Number.isFinite(this.voice.duration) && this.voice.duration > 0) this.D = this.voice.duration;
+      const dur = await mediaDuration(this.voice);
+      if (dur) this.D = dur; else if (r.voiceDuration > 0) this.D = r.voiceDuration;
     }
     if (this.align) this.D = Math.max(this.D, this.align.ends.at(-1) ?? 0);
     if (r.music) { this.music = new Audio(r.music); this.music.loop = !!r.musicLoop; this.music.preload = "auto"; }
     this.#layout();
     this.t0 = performance.now() - ((game.time.serverTime - this.startedAt) / 1000) * 1000;
     if (this.local) this.t0 = performance.now();
+    this.endAt = this.leadIn + this.D + (Number(r.hold) || 0) + (Number(r.fadeOut) || 0);
+    if (!this.local && this.#elapsed() > this.endAt + (Number(r.autoClose) || 0) + 5) { this.close(); if (current === this) current = null; return; }
     requestAnimationFrame(() => this.el.classList.add("mrecap-in"));
     this.#setScene(1, true);
     await this.#startAudio();
@@ -128,6 +151,7 @@ class RecapPlayer {
         <div class="mrecap-text"><div class="mrecap-scroll"><h2 class="mrecap-title">${esc(r.title)}</h2><div class="mrecap-body">${this.parsed.paragraphs.map((p) => `<p>${esc(p).replace(/\n/g, "<br>")}</p>`).join("")}</div></div></div>
         <div class="mrecap-controls"></div>
       </div>`;
+    el.style.setProperty("--mr-scale", String(clamp(Number(r.textScale) || 1, 0.6, 2)));
     document.body.appendChild(el);
     this.el = el;
     this.$base = el.querySelector(".mrecap-base");
@@ -211,7 +235,9 @@ class RecapPlayer {
     // mosaic dissolve
     const W = this.pw, H = this.ph;
     this.$tiles.replaceChildren();
-    const useTiles = this.recap.tiles && img;
+    const mode = this.recap.transition ?? (this.recap.tiles ? "mosaic" : "fade");
+    if (mode === "cut") { this.$base.style.backgroundImage = url; this.$tiles.replaceChildren(); return; }
+    const useTiles = mode === "mosaic" && img;
     const size = useTiles ? Math.max(24, Number(this.recap.tileSize) || 56) : Math.max(W, H);
     const cols = Math.max(1, Math.ceil(W / size)), rows = Math.max(1, Math.ceil(H / size));
     const tw = W / cols, th = H / rows;
@@ -317,14 +343,17 @@ class RecapPlayer {
       const start = this.th * 0.98, end = readY - this.#yAt(0);
       ty = start + (end - start) * e;
     } else if (tau >= this.D) {
-      ty -= clamp((tau - this.D) / Math.max(1, r.hold), 0, 1) * this.th * 0.35;
+      ty -= clamp((tau - this.D) / Math.max(1, r.hold), 0, 1) * this.th * 0.22;
     }
     this.$scroll.style.transform = `translateY(${ty}px)`;
 
-    // music fade after the narration + hold
+    // music fade after the narration + hold, ducked while the voice speaks
     if (this.music) {
       const over = tau - this.D - r.hold;
-      const base = clamp(r.musicVolume, 0, 1);
+      const speaking = this.voice && !this.voice.paused && !this.voice.ended;
+      const duckTarget = speaking ? clamp(r.duck ?? 0.6, 0, 1) : 1;
+      this.duckLevel = (this.duckLevel ?? 1) + (duckTarget - (this.duckLevel ?? 1)) * 0.05;
+      const base = clamp(r.musicVolume, 0, 1) * this.duckLevel;
       if (over > 0) {
         const k = clamp(1 - over / Math.max(0.1, r.fadeOut), 0, 1);
         this.music.volume = base * k;
@@ -332,6 +361,11 @@ class RecapPlayer {
       } else if (!this.audioBlocked) this.music.volume = base;
     }
     if (tau >= this.D) this.$controls.classList.add("mrecap-end");
+    if (r.autoClose > 0 && t > this.endAt + r.autoClose && !this.closing) {
+      this.closing = true;
+      if (game.user.isGM && !this.local) game.settings.set(MID, "active", null).catch(() => {});
+      closeCurrent(); return;
+    }
 
     this.raf = requestAnimationFrame(() => this.#tick());
   }
@@ -376,7 +410,12 @@ function allRecaps() { return game.journal.filter((j) => j.getFlag(MID, FLAG)); 
 function findRecap(idOrName) { return game.journal.get(idOrName) ?? allRecaps().find((j) => j.name === idOrName) ?? null; }
 function dataOf(doc) { return normalize(doc.getFlag(MID, FLAG)); }
 
+let folderPromise = null;
 async function ensureFolder() {
+  folderPromise ??= makeFolder().finally(() => { folderPromise = null; });
+  return folderPromise;
+}
+async function makeFolder() {
   let f = game.folders.find((x) => x.type === "JournalEntry" && x.name === FOLDER_NAME);
   if (!f) f = await Folder.create({ name: FOLDER_NAME, type: "JournalEntry" });
   return f;
@@ -409,7 +448,7 @@ const api = {
     let recap;
     if (raw) recap = normalize(idOrName);
     else { const doc = findRecap(idOrName); if (!doc) return ui.notifications.error(`Recap not found: ${idOrName}`); recap = dataOf(doc); }
-    const startedAt = game.time.serverTime;
+    const startedAt = game.time.serverTime + 2000; // lets every client preload first
     await game.settings.set(MID, "active", { recap, startedAt });
     await socket.executeForEveryone("play", { recap, startedAt });
   },
@@ -506,8 +545,11 @@ class RecapStudio extends ApplicationV2 {
         <div class="mrs-row"><label>Lead-in (s)</label><input type="number" name="leadIn" min="0" step="0.5" value="${d.leadIn}">
           <label>Hold at end (s)</label><input type="number" name="hold" min="0" step="0.5" value="${d.hold}">
           <label>Music fade-out (s)</label><input type="number" name="fadeOut" min="0" step="0.5" value="${d.fadeOut}"></div>
+        <div class="mrs-row"><label>Text size</label><input type="range" name="textScale" min="0.7" max="1.6" step="0.05" value="${d.textScale}">
+          <label>Music dips to</label><input type="range" name="duck" min="0" max="1" step="0.05" value="${d.duck}"><span class="mrs-hint">while the voice speaks</span></div>
+        <div class="mrs-row"><label>Auto-close after (s)</label><input type="number" name="autoClose" min="0" step="1" value="${d.autoClose}"><span class="mrs-hint">0 = stays until Done / Stop</span></div>
         <div class="mrs-row"><label>Scroll length (s)</label><input type="number" name="scrollSeconds" min="5" step="5" value="${d.scrollSeconds}"><span class="mrs-hint">used when there is no voice</span></div>
-        <div class="mrs-row"><label><input type="checkbox" name="tiles" ${d.tiles ? "checked" : ""}> Mosaic tile dissolve</label>
+        <div class="mrs-row"><label>Picture change</label><select name="transition">${["mosaic:Mosaic tile dissolve", "fade:Soft fade", "cut:Instant cut"].map((o) => { const [v, l] = o.split(":"); return `<option value="${v}" ${(d.transition ?? "mosaic") === v ? "selected" : ""}>${l}</option>`; }).join("")}</select>
           <label>Tile size (px)</label><input type="number" name="tileSize" min="24" step="4" value="${d.tileSize}">
           <label><input type="checkbox" name="pan" ${d.pan ? "checked" : ""}> Slow pan</label></div>
       </fieldset>
@@ -572,7 +614,11 @@ class RecapStudio extends ApplicationV2 {
     d.hold = Number(g("hold").value) || 0;
     d.fadeOut = Number(g("fadeOut").value) || 0;
     d.scrollSeconds = Number(g("scrollSeconds").value) || 90;
-    d.tiles = g("tiles").checked;
+    d.transition = g("transition").value;
+    d.tiles = d.transition === "mosaic";
+    d.textScale = Number(g("textScale").value) || 1;
+    d.duck = Number(g("duck").value);
+    d.autoClose = Number(g("autoClose").value) || 0;
     d.tileSize = Number(g("tileSize").value) || 56;
     d.pan = g("pan").checked;
     d.pictures = [...r.querySelectorAll(".mrs-pic")].map((row) => ({
@@ -588,6 +634,12 @@ class RecapStudio extends ApplicationV2 {
   }
 
   async #save() {
+    if (this.saving) return this.saving;
+    this.saving = this.#doSave().finally(() => { this.saving = null; });
+    return this.saving;
+  }
+
+  async #doSave() {
     this.#collect();
     const doc = await saveRecap(this.docId, this.data);
     this.docId = doc.id;
@@ -610,9 +662,9 @@ class RecapStudio extends ApplicationV2 {
       case "picUp": if (i > 0) { this.#collect(); [d.pictures[i - 1], d.pictures[i]] = [d.pictures[i], d.pictures[i - 1]]; return this.render(); } return;
       case "picDown": if (i < d.pictures.length - 1) { this.#collect(); [d.pictures[i + 1], d.pictures[i]] = [d.pictures[i], d.pictures[i + 1]]; return this.render(); } return;
       case "picDel": this.#collect(); d.pictures.splice(i, 1); return this.render();
-      case "browseVoice": { this.#collect(); const p = await this.#pick("audio", d.voice); if (p) d.voice = p; return this.render(); }
+      case "browseVoice": { this.#collect(); const p = await this.#pick("audio", d.voice); if (p) { d.voice = p; d.voiceDuration = 0; } return this.render(); }
       case "browseMusic": { this.#collect(); const p = await this.#pick("audio", d.music); if (p) d.music = p; return this.render(); }
-      case "clearVoice": this.#collect(); d.voice = ""; return this.render();
+      case "clearVoice": this.#collect(); d.voice = ""; d.voiceDuration = 0; return this.render();
       case "clearMusic": this.#collect(); d.music = ""; return this.render();
       case "browseTimings": {
         this.#collect(); const p = await this.#pick("any", "");
@@ -675,6 +727,7 @@ class RecapStudio extends ApplicationV2 {
         const path = res?.path;
         if (!path) throw new Error("upload returned no path");
         this.#collect(); this.data[kind] = path;
+        if (kind === "voice") this.data.voiceDuration = +((Date.now() - started) / 1000).toFixed(2);
         ui.notifications.info(`Recording saved: ${path}`);
       } catch (e) {
         console.error(`${MID} | recording upload failed`, e);
