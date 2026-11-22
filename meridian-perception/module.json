@@ -13,6 +13,6 @@
     "requires": [{ "id": "socketlib", "type": "module" }]
   },
   "documentTypes": { "RegionBehavior": { "room": {} } },
-  "manifest": "https://raw.githubusercontent.com/EvGuy/meridian-run-asset-transfer./main/meridian-perception/module.json",
-  "download": "https://raw.githubusercontent.com/EvGuy/meridian-run-asset-transfer./528714cace2e33c0e88fe8bfa99f761fa5439364/meridian-perception/meridian-perception.zip"
+  "manifest": "https://raw.githubusercontent.com/EvGuy/meridian-run-asset-transfer/main/meridian-perception/module.json",
+  "download": "https://raw.githubusercontent.com/EvGuy/meridian-run-asset-transfer/528714cace2e33c0e88fe8bfa99f761fa5439364/meridian-perception/meridian-perception.zip"
 }

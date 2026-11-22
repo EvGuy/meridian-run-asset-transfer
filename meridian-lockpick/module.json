@@ -12,6 +12,6 @@
       { "id": "socketlib", "type": "module" }
     ]
   },
-  "manifest": "https://raw.githubusercontent.com/EvGuy/meridian-run-asset-transfer./main/meridian-lockpick/module.json",
-  "download": "https://raw.githubusercontent.com/EvGuy/meridian-run-asset-transfer./main/meridian-lockpick/meridian-lockpick.zip"
+  "manifest": "https://raw.githubusercontent.com/EvGuy/meridian-run-asset-transfer/main/meridian-lockpick/module.json",
+  "download": "https://raw.githubusercontent.com/EvGuy/meridian-run-asset-transfer/main/meridian-lockpick/meridian-lockpick.zip"
 }
