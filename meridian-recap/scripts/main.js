@@ -1,4 +1,4 @@
-/* Meridian Recap 1.2.0
+/* Meridian Recap 1.4.0
  * GM-authored Baldur's Gate 2 style chapter recap. Studio (GM) + overlay player (everyone).
  * Data: JournalEntry in folder "Recaps", flags.meridian-recap.recap.
  */
@@ -6,6 +6,8 @@ const MID = "meridian-recap";
 const FLAG = "recap";
 const FOLDER_NAME = "Recaps";
 const MAX_JOIN_SECONDS = 900;
+/** per-user master volume (voice + music), 0..1 */
+const master = () => { try { return Math.min(1, Math.max(0, Number(game.settings.get(MID, "master")))); } catch (e) { return 1; } };
 
 const DEFAULTS = {
   title: "Chapter Recap",
@@ -171,6 +173,15 @@ class RecapPlayer {
     } else {
       mk("Done", () => closeCurrent());
     }
+    // master volume (voice + music), per user, remembered between recaps
+    const vol = document.createElement("div"); vol.className = "mrecap-vol";
+    const spk = document.createElement("button"); spk.type = "button"; spk.className = "mrecap-btn mrecap-spk"; spk.title = "Mute / unmute";
+    const rng = document.createElement("input"); rng.type = "range"; rng.min = "0"; rng.max = "1"; rng.step = "0.05"; rng.title = "Master volume (narration and music)";
+    const paint = () => { const v = master(); rng.value = String(v); spk.textContent = v === 0 ? "\u{1F507}" : v < 0.5 ? "\u{1F509}" : "\u{1F50A}"; };
+    const setMaster = (v) => { game.settings.set(MID, "master", v).catch(() => {}); if (this.music && !this.audioBlocked) this.music.volume = Math.min(1, clamp(this.recap.musicVolume, 0, 1) * (this.duckLevel ?? 1) * v); if (this.voice) this.voice.volume = clamp(this.recap.voiceVolume ?? 1, 0, 1) * v; };
+    rng.addEventListener("input", () => { const v = Number(rng.value); this._lastMaster = v || this._lastMaster; setMaster(v); spk.textContent = v === 0 ? "\u{1F507}" : v < 0.5 ? "\u{1F509}" : "\u{1F50A}"; });
+    spk.addEventListener("click", () => { const cur = master(); const nv = cur > 0 ? 0 : (this._lastMaster || 0.7); if (cur > 0) this._lastMaster = cur; rng.value = String(nv); setMaster(nv); spk.textContent = nv === 0 ? "\u{1F507}" : nv < 0.5 ? "\u{1F509}" : "\u{1F50A}"; });
+    vol.append(spk, rng); this.$controls.prepend(vol); paint();
     this._keyHandler = (ev) => { if (ev.key === "Escape" && (this.local || !game.user.isGM)) { ev.stopPropagation(); closeCurrent(); } };
     window.addEventListener("keydown", this._keyHandler, true);
   }
@@ -269,13 +280,13 @@ class RecapPlayer {
     const t = this.#elapsed();
     const jobs = [];
     if (this.music) {
-      this.music.volume = clamp(this.recap.musicVolume, 0, 1);
+      this.music.volume = clamp(this.recap.musicVolume, 0, 1) * master();
       if (Number.isFinite(this.music.duration) && this.music.duration > 0 && t > 0) this.music.currentTime = t % this.music.duration;
       jobs.push(this.music.play());
     }
     if (this.voice && t >= this.leadIn) {
       this.voice.currentTime = Math.max(0, t - this.leadIn);
-      this.voice.volume = clamp(this.recap.voiceVolume ?? 1, 0, 1);
+      this.voice.volume = clamp(this.recap.voiceVolume ?? 1, 0, 1) * master();
       jobs.push(this.voice.play().then(() => { this.voiceStarted = true; }));
     }
     const res = await Promise.allSettled(jobs);
@@ -329,7 +340,7 @@ class RecapPlayer {
     if (this.voice && !this.voiceStarted && !this.audioBlocked && t >= this.leadIn && !this.voice.ended) {
       this.voiceStarted = true;
       this.voice.currentTime = clamp(tau, 0, this.voice.duration || tau);
-      this.voice.volume = clamp(this.recap.voiceVolume ?? 1, 0, 1);
+      this.voice.volume = clamp(this.recap.voiceVolume ?? 1, 0, 1) * master();
       this.voice.play().catch(() => { this.voiceStarted = false; if (!this.audioBlocked) this.#showGate(); });
     }
 
@@ -348,13 +359,14 @@ class RecapPlayer {
     }
     this.$scroll.style.transform = `translateY(${ty}px)`;
 
+    if (this.voice && this.voiceStarted) this.voice.volume = clamp(r.voiceVolume ?? 1, 0, 1) * master();
     // music fade after the narration + hold, ducked while the voice speaks
     if (this.music) {
       const over = tau - this.D - r.hold;
       const speaking = this.voice && !this.voice.paused && !this.voice.ended;
       const duckTarget = speaking ? clamp(r.duck ?? 0.6, 0, 1) : 1;
       this.duckLevel = (this.duckLevel ?? 1) + (duckTarget - (this.duckLevel ?? 1)) * 0.05;
-      const base = clamp(r.musicVolume, 0, 1) * this.duckLevel;
+      const base = clamp(r.musicVolume, 0, 1) * this.duckLevel * master();
       if (over > 0) {
         const k = clamp(1 - over / Math.max(0.1, r.fadeOut), 0, 1);
         this.music.volume = base * k;
@@ -748,6 +760,7 @@ class RecapStudio extends ApplicationV2 {
 /* ------------------------------------------------------------------ hooks */
 Hooks.once("init", () => {
   game.settings.register(MID, "active", { scope: "world", config: false, type: Object, default: null });
+  game.settings.register(MID, "master", { scope: "client", config: false, type: Number, default: 1 });
 });
 
 Hooks.once("socketlib.ready", () => {
