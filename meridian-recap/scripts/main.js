@@ -1,4 +1,4 @@
-/* Meridian Recap 1.1.0
+/* Meridian Recap 1.1.1
  * GM-authored Baldur's Gate 2 style chapter recap. Studio (GM) + overlay player (everyone).
  * Data: JournalEntry in folder "Recaps", flags.meridian-recap.recap.
  */
@@ -14,9 +14,10 @@ const DEFAULTS = {
   voice: "",
   music: "",
   musicVolume: 0.5,
+  voiceVolume: 1,
   musicLoop: true,
   timingsJson: "",
-  leadIn: 2,
+  leadIn: 4,
   hold: 4,
   fadeOut: 4,
   scrollSeconds: 90,
@@ -33,7 +34,6 @@ const esc = (s) => foundry.utils.escapeHTML(String(s ?? ""));
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const FP = () => foundry.applications.apps.FilePicker.implementation;
-const interfaceVolume = () => { try { return game.settings.get("core", "globalInterfaceVolume") ?? 1; } catch { return 1; } };
 
 function normalize(data) {
   const d = foundry.utils.mergeObject(foundry.utils.deepClone(DEFAULTS), data ?? {}, { inplace: false });
@@ -154,6 +154,39 @@ class RecapPlayer {
     this.pw = this.$pic.clientWidth; this.ph = this.$pic.clientHeight;
     this.th = this.$text.clientHeight;
     this.ch = this.$scroll.scrollHeight;
+    // paragraph geometry for the reading-line scroll
+    const ps = [...this.$scroll.querySelectorAll(".mrecap-body p")];
+    const text = this.parsed.text; let from = 0;
+    this.pmap = this.parsed.paragraphs.map((para, i) => {
+      const start = Math.max(0, text.indexOf(para, from)); from = start + para.length;
+      const el = ps[i];
+      return { start, len: Math.max(1, para.length), top: el ? el.offsetTop : 0, h: el ? el.offsetHeight : 0 };
+    });
+  }
+
+  /** y offset (inside the scroll block) of the text position c */
+  #yAt(c) {
+    const m = this.pmap; if (!m?.length) return 0;
+    for (let i = 0; i < m.length; i++) {
+      const p = m[i], next = m[i + 1];
+      if (c < p.start) return p.top;
+      if (c <= p.start + p.len || !next) return p.top + clamp((c - p.start) / p.len, 0, 1) * p.h;
+      if (c < next.start) return next.top;
+    }
+    return m.at(-1).top + m.at(-1).h;
+  }
+
+  /** narrated character position at narration time tau */
+  #charAt(tau) {
+    const total = this.parsed.text.length;
+    if (tau <= 0) return 0;
+    if (tau >= this.D) return total;
+    if (this.align) {
+      const a = this.align.starts; let lo = 0, hi = a.length - 1;
+      while (lo < hi) { const mid = (lo + hi + 1) >> 1; if (a[mid] <= tau) lo = mid; else hi = mid - 1; }
+      return lo;
+    }
+    return (tau / this.D) * total;
   }
 
   async #image(src) {
@@ -209,13 +242,13 @@ class RecapPlayer {
     const t = this.#elapsed();
     const jobs = [];
     if (this.music) {
-      this.music.volume = clamp(this.recap.musicVolume * interfaceVolume(), 0, 1);
+      this.music.volume = clamp(this.recap.musicVolume, 0, 1);
       if (Number.isFinite(this.music.duration) && this.music.duration > 0 && t > 0) this.music.currentTime = t % this.music.duration;
       jobs.push(this.music.play());
     }
     if (this.voice && t >= this.leadIn) {
       this.voice.currentTime = Math.max(0, t - this.leadIn);
-      this.voice.volume = clamp(interfaceVolume(), 0, 1);
+      this.voice.volume = clamp(this.recap.voiceVolume ?? 1, 0, 1);
       jobs.push(this.voice.play().then(() => { this.voiceStarted = true; }));
     }
     const res = await Promise.allSettled(jobs);
@@ -251,18 +284,6 @@ class RecapPlayer {
     return (i / total) * this.D;
   }
 
-  #progress(tau) {
-    const total = Math.max(1, this.parsed.text.length);
-    if (tau <= 0) return 0;
-    if (tau >= this.D) return 1;
-    if (this.align) {
-      const a = this.align.starts; let lo = 0, hi = a.length - 1;
-      while (lo < hi) { const mid = (lo + hi + 1) >> 1; if (a[mid] <= tau) lo = mid; else hi = mid - 1; }
-      return clamp(lo / Math.max(1, a.length - 1), 0, 1);
-    }
-    return clamp(tau / this.D, 0, 1) * (total ? 1 : 0);
-  }
-
   #sceneAt(tau) {
     let n = 1, best = -Infinity;
     for (const m of this.parsed.markers) {
@@ -281,22 +302,29 @@ class RecapPlayer {
     if (this.voice && !this.voiceStarted && !this.audioBlocked && t >= this.leadIn && !this.voice.ended) {
       this.voiceStarted = true;
       this.voice.currentTime = clamp(tau, 0, this.voice.duration || tau);
-      this.voice.volume = clamp(interfaceVolume(), 0, 1);
+      this.voice.volume = clamp(this.recap.voiceVolume ?? 1, 0, 1);
       this.voice.play().catch(() => { this.voiceStarted = false; if (!this.audioBlocked) this.#showGate(); });
     }
 
     this.#setScene(this.#sceneAt(tau));
 
-    // scroll: text rises from the bottom, last line stops in the upper third
-    const f = this.#progress(tau);
-    const startY = this.th * 0.97;
-    const endY = -(this.ch - this.th * 0.38);
-    this.$scroll.style.transform = `translateY(${startY + (endY - startY) * f}px)`;
+    // scroll: the text being read sits on a fixed reading line; the title rides in from the bottom during the lead-in
+    const readY = this.th * 0.5;
+    const c = this.#charAt(tau);
+    let ty = readY - this.#yAt(c);
+    if (t < this.leadIn) {
+      const p = clamp(t / Math.max(0.5, this.leadIn), 0, 1), e = p * p * (3 - 2 * p);
+      const start = this.th * 0.98, end = readY - this.#yAt(0);
+      ty = start + (end - start) * e;
+    } else if (tau >= this.D) {
+      ty -= clamp((tau - this.D) / Math.max(1, r.hold), 0, 1) * this.th * 0.35;
+    }
+    this.$scroll.style.transform = `translateY(${ty}px)`;
 
     // music fade after the narration + hold
     if (this.music) {
       const over = tau - this.D - r.hold;
-      const base = clamp(r.musicVolume * interfaceVolume(), 0, 1);
+      const base = clamp(r.musicVolume, 0, 1);
       if (over > 0) {
         const k = clamp(1 - over / Math.max(0.1, r.fadeOut), 0, 1);
         this.music.volume = base * k;
@@ -306,6 +334,22 @@ class RecapPlayer {
     if (tau >= this.D) this.$controls.classList.add("mrecap-end");
 
     this.raf = requestAnimationFrame(() => this.#tick());
+  }
+
+  state() {
+    const t = this.#elapsed();
+    return {
+      t: +t.toFixed(2), tau: +(t - this.leadIn).toFixed(2), D: +this.D.toFixed(2), scene: this.scene,
+      voice: this.voice ? { playing: !this.voice.paused && !this.voice.ended, time: +this.voice.currentTime.toFixed(2), dur: this.voice.duration } : null,
+      music: this.music ? { playing: !this.music.paused, time: +this.music.currentTime.toFixed(2), vol: +this.music.volume.toFixed(3), dur: this.music.duration } : null,
+      audioBlocked: this.audioBlocked, charPos: Math.round(this.#charAt(t - this.leadIn)), chars: this.parsed.text.length
+    };
+  }
+
+  seek(t) {
+    this.t0 = performance.now() - t * 1000;
+    if (this.music && this.music.duration) this.music.currentTime = t % this.music.duration;
+    if (this.voice) { this.voice.currentTime = Math.max(0, t - this.leadIn); }
   }
 
   close() {
@@ -380,6 +424,8 @@ const api = {
     else { const doc = findRecap(idOrName); if (!doc) return ui.notifications.error(`Recap not found: ${idOrName}`); recap = dataOf(doc); }
     await startPlayer(recap, { local: true });
   },
+  state: () => current?.state() ?? null,
+  seek: (t) => current?.seek(t),
   parseScript
 };
 
@@ -440,6 +486,7 @@ class RecapStudio extends ApplicationV2 {
           <button type="button" class="mrs-rec" data-action="recVoice" data-kind="voice"><i class="fa-solid fa-microphone"></i> <span>Record</span></button>
           <button type="button" data-action="clearVoice" title="Clear"><i class="fa-solid fa-xmark"></i></button></div>
         ${d.voice ? `<audio controls src="${esc(d.voice)}"></audio>` : ""}
+        <div class="mrs-row"><label>Voice volume</label><input type="range" name="voiceVolume" min="0" max="1" step="0.05" value="${d.voiceVolume}"></div>
         <div class="mrs-row"><label>Timings JSON</label><button type="button" data-action="browseTimings"><i class="fa-solid fa-folder-open"></i> Load file</button>
           <span class="mrs-hint">Optional ElevenLabs with-timestamps JSON for exact sync.</span></div>
         <textarea class="mrs-small" name="timingsJson" placeholder="paste ElevenLabs with-timestamps JSON (optional)">${esc(d.timingsJson)}</textarea>
@@ -483,6 +530,8 @@ class RecapStudio extends ApplicationV2 {
 
   #wire(root) {
     this.$root = root;
+    if (root.dataset.mrsWired) { this.#wireSelect(root); return; }
+    root.dataset.mrsWired = "1";
     root.addEventListener("click", (ev) => {
       const b = ev.target.closest("[data-action]");
       if (!b) return;
@@ -490,15 +539,19 @@ class RecapStudio extends ApplicationV2 {
       const i = Number(b.closest(".mrs-pic")?.dataset.i);
       this.#action(b.dataset.action, i, b);
     });
+    root.addEventListener("input", (ev) => {
+      if (ev.target.matches('[name="pic-src"]')) { const img = ev.target.closest(".mrs-pic").querySelector("img"); img.src = ev.target.value; }
+    });
+    this.#wireSelect(root);
+  }
+
+  #wireSelect(root) {
     root.querySelector('[name="recapPick"]').addEventListener("change", (ev) => {
       if (this.rec) return ui.notifications.warn("Stop the recording first.");
       this.docId = ev.target.value || null;
       const doc = this.docId ? game.journal.get(this.docId) : null;
       this.data = doc ? dataOf(doc) : normalize({});
       this.render();
-    });
-    root.addEventListener("input", (ev) => {
-      if (ev.target.matches('[name="pic-src"]')) { const img = ev.target.closest(".mrs-pic").querySelector("img"); img.src = ev.target.value; }
     });
   }
 
@@ -513,6 +566,7 @@ class RecapStudio extends ApplicationV2 {
     d.music = g("music").value.trim();
     d.timingsJson = g("timingsJson").value;
     d.musicVolume = Number(g("musicVolume").value);
+    d.voiceVolume = Number(g("voiceVolume").value);
     d.musicLoop = g("musicLoop").checked;
     d.leadIn = Number(g("leadIn").value) || 0;
     d.hold = Number(g("hold").value) || 0;
