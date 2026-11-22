@@ -13,45 +13,17 @@
 .mrecap-overlay.mrecap-in { opacity: 1; }
 .mrecap-frame {
   position: relative; width: min(1040px, 95vw); height: min(94vh, 900px);
-  display: flex; flex-direction: column; padding: 30px;
-  /* worn dark-iron slab with a faint mottled grain */
-  background:
-    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' seed='7'/><feColorMatrix values='0 0 0 0 .55  0 0 0 0 .42  0 0 0 0 .22  0 0 0 .55 0'/></filter><rect width='100%' height='100%' filter='url(%23n)' opacity='.5'/></svg>"),
-    linear-gradient(145deg, #3a2a16 0%, #1c130a 45%, #2e2011 100%);
-  border: 3px solid #0a0604; border-radius: 4px;
-  box-shadow:
-    inset 0 0 0 2px #7a5a24,            /* bronze rim */
-    inset 0 0 0 4px #1a1006,
-    inset 0 0 0 5px #d3ab55,            /* bright gold hairline */
-    inset 0 0 0 7px #120b04,
-    inset 0 2px 6px 6px rgba(0,0,0,.55),
-    0 0 0 1px #5a4118, 0 0 70px 14px rgba(0,0,0,.92);
+  display: flex; flex-direction: column; padding: 74px; box-sizing: border-box;
+  background: #050302; border: 0; border-radius: 0;
+  /* carved root-and-bronze bezel (original art), 9-sliced */
+  border-image: url("https://assets.forge-vtt.com/6a1b087795ccfed82d4ccf0e/meridian-recap/art/recap-frame-oak.png") 128 128 128 128 / 82px 82px 82px 82px / 0 stretch;
+  filter: drop-shadow(0 0 40px rgba(0,0,0,.9));
 }
-/* inner gold inlay line framing the two panels */
-.mrecap-frame::before {
-  content: ""; position: absolute; inset: 15px; pointer-events: none;
-  border: 1px solid rgba(211,171,85,.55);
-  box-shadow: 0 0 0 1px #0a0604, inset 0 0 0 1px #0a0604;
-}
-.mrecap-corner {
-  position: absolute; width: 92px; height: 92px; pointer-events: none; z-index: 5;
-  background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%23f1d58a'/><stop offset='.5' stop-color='%23b8923f'/><stop offset='1' stop-color='%236a4c17'/></linearGradient></defs><path d='M3 3 H34 Q38 3 38 7 Q38 11 34 11 H17 Q11 11 11 17 V34 Q11 38 7 38 Q3 38 3 34 Z' fill='url(%23g)' stroke='%230a0604' stroke-width='1.5'/><path d='M14 14 H30 M14 14 V30' stroke='%230a0604' stroke-width='1.2' fill='none' opacity='.7'/><circle cx='22' cy='22' r='5.5' fill='url(%23g)' stroke='%230a0604' stroke-width='1.5'/><circle cx='22' cy='22' r='1.8' fill='%230a0604'/><path d='M40 4 Q52 4 58 12 Q50 10 44 14 Q42 9 40 4Z M4 40 Q4 52 12 58 Q10 50 14 44 Q9 42 4 40Z' fill='url(%23g)' stroke='%230a0604' stroke-width='1'/></svg>") center/contain no-repeat;
-  filter: drop-shadow(0 2px 3px rgba(0,0,0,.8));
-}
-.mrecap-corner.tl { top: 2px; left: 2px; }
-.mrecap-corner.tr { top: 2px; right: 2px; transform: scaleX(-1); }
-.mrecap-corner.bl { bottom: 2px; left: 2px; transform: scaleY(-1); }
-.mrecap-corner.br { bottom: 2px; right: 2px; transform: scale(-1,-1); }
-.mrecap-edge {
-  position: absolute; left: 50%; width: 120px; height: 22px; margin-left: -60px; pointer-events: none; z-index: 5;
-  background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 22'><defs><linearGradient id='g' x1='0' y1='0' x2='0' y2='1'><stop offset='0' stop-color='%23f1d58a'/><stop offset='1' stop-color='%23775619'/></linearGradient></defs><path d='M0 11 H40 M80 11 H120' stroke='%23b8923f' stroke-width='2'/><path d='M60 1 L74 11 L60 21 L46 11Z' fill='url(%23g)' stroke='%230a0604' stroke-width='1.5'/><path d='M60 6 L67 11 L60 16 L53 11Z' fill='%230a0604' opacity='.75'/><circle cx='38' cy='11' r='3' fill='url(%23g)' stroke='%230a0604'/><circle cx='82' cy='11' r='3' fill='url(%23g)' stroke='%230a0604'/></svg>") center/contain no-repeat;
-  filter: drop-shadow(0 2px 3px rgba(0,0,0,.8));
-}
-.mrecap-edge.top { top: 4px; }
-.mrecap-edge.bot { bottom: 4px; }
+/* legacy gold ornaments are superseded by the bezel art */
+.mrecap-frame::before, .mrecap-corner, .mrecap-edge { display: none; }
 .mrecap-picture {
   position: relative; flex: 0 0 46%; overflow: hidden; background: #000;
-  border: 2px solid #b8923f; box-shadow: inset 0 0 0 2px #2b1c08, inset 0 0 40px #000;
+  border: 1px solid #0a0604; box-shadow: 0 0 0 1px #5a4118, inset 0 0 30px #000;
 }
 .mrecap-stage { position: absolute; inset: 0; transform-origin: 50% 50%; }
 .mrecap-stage.mrecap-pan { animation: mrecap-pan 45s linear infinite alternate; }
@@ -64,7 +36,7 @@
 .mrecap-text {
   position: relative; flex: 1 1 auto; margin-top: 12px; overflow: hidden;
   background: radial-gradient(ellipse at center, #1d140c 0%, #0c0805 100%);
-  border: 2px solid #b8923f; box-shadow: inset 0 0 0 2px #2b1c08, inset 0 0 40px #000;
+  border: 1px solid #0a0604; box-shadow: 0 0 0 1px #5a4118, inset 0 0 30px #000;
   -webkit-mask-image: none;
 }
 .mrecap-text::before, .mrecap-text::after { content: ""; position: absolute; left: 0; right: 0; height: 14%; z-index: 2; pointer-events: none; }
@@ -84,7 +56,7 @@
   float: left; font-family: "MR Cinzel Deco", "MR Cinzel", serif; font-weight: 700; color: #e0b95a;
   font-size: 3.6em; line-height: .85; padding: .05em .12em 0 0; text-shadow: 0 0 10px rgba(224,185,90,.5);
 }
-.mrecap-controls { position: absolute; right: 96px; bottom: 34px; z-index: 5; display: flex; gap: 8px; opacity: .25; transition: opacity .4s; }
+.mrecap-controls { position: absolute; right: 92px; bottom: 86px; z-index: 5; display: flex; gap: 8px; opacity: .25; transition: opacity .4s; }
 .mrecap-frame:hover .mrecap-controls, .mrecap-controls.mrecap-end { opacity: 1; }
 .mrecap-btn {
   font-family: "MR Cinzel", Georgia, serif; font-size: .85rem; letter-spacing: .1em; text-transform: uppercase; cursor: pointer;
