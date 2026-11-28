@@ -110,8 +110,10 @@ const readDrag = (event) => {
 /* ---------- Coin bar on character, party and loot windows ---------- */
 function windowActor(app) {
   const name = app.constructor.name;
-  if (/Merchant|Dialog|Manager|Config|Settings/i.test(name)) return null;
-  if (!/Sheet|ItemPile/i.test(name)) return null;
+  // Item Piles may ship minified class names, so also check its window CSS classes.
+  const css = (app.options?.classes ?? []).join(" ");
+  if (/item-piles-merchant/.test(css) || /Merchant|Dialog|Manager|Config|Settings/i.test(name)) return null;
+  if (!/item-pile-inventory/.test(css) && !/Sheet|ItemPile/i.test(name)) return null;
   const actor = app.actor ?? app.document ?? app.options?.svelte?.props?.actor;
   if (actor?.documentName !== "Actor" || !actor.system?.currency) return null;
   return actor;
@@ -261,7 +263,7 @@ Hooks.once("ready", async () => {
 });
 
 // Read-only look for players on any sheet that names its coin fields.
-const COIN_FIELDS = 'input[name^="system.currency."], input[data-tidy-field^="system.currency."]';
+const COIN_FIELDS = 'input[name^="system.currency."], input[data-name^="system.currency."], input[data-tidy-field^="system.currency."]';
 document.addEventListener("focusin", (ev) => {
   if (document.body.classList.contains("mcl-locked") && ev.target.matches?.(COIN_FIELDS)) ev.target.readOnly = true;
 }, true);

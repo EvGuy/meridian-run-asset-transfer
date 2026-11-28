@@ -5,4 +5,5 @@
 .mcl-target { border: 1px dashed currentColor; border-radius: 3px; padding: 1px 8px; }
 .mcl-coin.mcl-empty { opacity: 0.4; cursor: default; }
 body.mcl-locked input[name^="system.currency."],
+body.mcl-locked input[data-name^="system.currency."],
 body.mcl-locked input[data-tidy-field^="system.currency."] { cursor: not-allowed; }
