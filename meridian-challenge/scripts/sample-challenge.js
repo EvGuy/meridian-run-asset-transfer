@@ -27,7 +27,7 @@ export const SAMPLE_CHALLENGE = {
     cookfire: {
       id: "cookfire",
       rollMode: ROLL_MODES.RALLY,
-      image: "modules/meridian-challenge/assets/scenes/cookfire.jpg",
+      image: "modules/meridian-challenge/assets/scenes/cookfire.png",
       description: "Past the wagons, a cookfire crowd of drovers and wagon-hands has gone quiet. They have heard a rumour about you and nobody has asked you a question yet.",
       options: [
         { id: "c-plain", successText: "You talk the way they talk, no polish and no angles. Someone passes you a tin cup. The ring loosens by a hand's width.", failureText: "It comes out sounding rehearsed. A few drovers trade looks, and someone mutters that plain talk is cheap.", label: "Speak plainly, as one of them", requiresRoll: true, skill: "per", lane: "T", dc: 12, successNodeId: "guard", failureNodeId: "sour", failureTags: ["Raise DC"] },
@@ -38,7 +38,7 @@ export const SAMPLE_CHALLENGE = {
     sour: {
       id: "sour",
       rollMode: ROLL_MODES.WEAKEST,
-      image: "modules/meridian-challenge/assets/scenes/sour.jpg",
+      image: "modules/meridian-challenge/assets/scenes/sour.png",
       description: "Someone near the back says a name out loud. Heads turn. The mood has shifted and everyone has to hold their face together.",
       options: [
         { id: "s-calm", successText: "You take the moment: hands open, voices low, every one of you giving the same short answer. The mood bleeds out of the circle.", failureText: "You get them quiet, not calm. It is the kind of silence that remembers.", label: "Settle the crowd, all of you together", requiresRoll: true, skill: "per", lane: "T", dc: 13, successNodeId: "guard", failureNodeId: "guard", failureTags: ["Raise DC"] }
@@ -47,7 +47,7 @@ export const SAMPLE_CHALLENGE = {
     guard: {
       id: "guard",
       rollMode: ROLL_MODES.INDIVIDUAL,
-      image: "modules/meridian-challenge/assets/scenes/guard.jpg",
+      image: "modules/meridian-challenge/assets/scenes/guard.png",
       description: "The veteran gate-guard blocks the lantern-lit steps to the muster hall, arms folded. He has seen a lot of people who talked well and carried nothing.",
       options: [
         { id: "g-prove", successText: "You take the veteran's measure and he takes yours. You hand him your end of a heavy crate without being asked. He grunts and steps half aside.", failureText: "He watches you fumble something simple and decides what he thinks of you. He lets you by anyway, unimpressed.", label: "Show you are no liability", requiresRoll: true, skill: "ath", lane: "S", dc: 13, successNodeId: "ledger", failureNodeId: "ledger", failureTags: ["Raise DC"] },
@@ -58,7 +58,7 @@ export const SAMPLE_CHALLENGE = {
       id: "ledger",
       rollMode: ROLL_MODES.RALLY,
       needsLane: "L",
-      image: "modules/meridian-challenge/assets/scenes/ledger.jpg",
+      image: "modules/meridian-challenge/assets/scenes/ledger.png",
       description: "Inside, the quartermaster has the supply tallies open on a trestle table. She cares about numbers and nothing else tonight.",
       options: [
         { id: "l-tally", successText: "You turn her own figures back on themselves: a clean sum, a gap closed. She stops writing and looks at you for the first time.", failureText: "Your figures do not reconcile with hers, and she says so, precisely, and moves on.", label: "Lay out the supply tallies", requiresRoll: true, skill: "inv", lane: "L", dc: 13, successNodeId: "master", failureNodeId: "master" },
@@ -69,7 +69,7 @@ export const SAMPLE_CHALLENGE = {
       id: "master",
       rollMode: ROLL_MODES.INDIVIDUAL,
       finalStage: true,
-      image: "modules/meridian-challenge/assets/scenes/master.jpg",
+      image: "modules/meridian-challenge/assets/scenes/master.png",
       description: "The caravan master looks up from the table. Everything the hall has seen of you is now on the record. She asks one question.",
       options: [
         { id: "m-case", successText: "You say it straight and in order, with nothing hidden that matters. She holds your gaze a long moment, then nods once.", failureText: "The case holds, barely. She has heard better, and she lets you know she knows it.", label: "Make your case", requiresRoll: true, skill: "per", lane: "T", dc: 14, successNodeId: "end", failureNodeId: "end", failureTags: ["Raise DC"] },
@@ -78,7 +78,7 @@ export const SAMPLE_CHALLENGE = {
     },
     end: {
       id: "end",
-      image: "modules/meridian-challenge/assets/scenes/end.jpg",
+      image: "modules/meridian-challenge/assets/scenes/end.png",
       description: "The master closes the ledger.",
       options: []
     }
