@@ -75,8 +75,7 @@ function bodyHtml(v, isCtl) {
       const pct = totalVotes ? Math.round((n / totalVotes) * 100) : 0;
       const mine = me && v.votes[me] === o.id;
       const tags = [];
-      if (o.requiresRoll) tags.push(`${o.skill.toUpperCase()} DC ${o.dc}`);
-      if (o.lane) tags.push(`→ ${o.lane}`);
+      if (o.requiresRoll) tags.push(o.skill.toUpperCase());
       return `<button class="mc-vote ${o.locked ? "locked" : ""} ${mine ? "mine" : ""}" data-act="vote" data-id="${o.id}" ${o.locked || !me ? "disabled" : ""}>
         <span class="mc-fill" style="width:${pct}%"></span>
         <span class="mc-num">${idx + 1}:</span><span class="mc-label">${esc(o.label)}${o.locked ? ` <em>(${esc(o.reason)})</em>` : ""}${mine ? " ✓" : ""}</span>
