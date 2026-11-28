@@ -109,3 +109,6 @@
 .mc-card button { background: #e9dcb8; color: #5a1c1c; border-color: #5a1c1c; }
 .mc-card button:hover:not(:disabled) { background: #f0e4c2; }
 .mc-stone .mc-gm { flex: 0 0 15rem; border-left: 0; padding: 10px; background: rgba(8,6,3,.82); border: 1px solid #5b3f1f; border-radius: 3px; overflow: auto; }
+
+.mc-card .mc-rolls, .mc-card .mc-rolls tr, .mc-card .mc-rolls td { background: transparent !important; }
+.mc-card .mc-rolls tr:nth-child(odd) td { background: rgba(90,28,28,.06) !important; }

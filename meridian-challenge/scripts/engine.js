@@ -326,10 +326,10 @@ export function applyResult(seq, runIn, node, option, result, cfg = DEFAULTS) {
     nextId = result.success ? option.successNodeId : option.failureNodeId;
     if (d === DEGREES.SUCCESS) {
       const g = bump(run, lane, 1, cfg);
-      events.push(g ? `${lane} +1` : `${lane} already at max`);
+      if (lane) events.push(g ? `${lane} +1` : `${lane} already at max`);
     } else if (d === DEGREES.CRIT_SUCCESS) {
       const g = bump(run, lane, 2, cfg);
-      events.push(g ? `${lane} +${g}` : `${lane} already at max`);
+      if (lane) events.push(g ? `${lane} +${g}` : `${lane} already at max`);
       const hint = revealShapeHint(seq, run);
       if (hint) events.push(`Read the room: ${hint.text}`);
     } else if (d === DEGREES.FAILURE || d === DEGREES.CRIT_FAILURE) {

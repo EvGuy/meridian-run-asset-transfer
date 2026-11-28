@@ -2,7 +2,7 @@
   "id": "meridian-challenge",
   "title": "Meridian Challenge",
   "description": "Branching skill and social challenges: players vote on an approach, rolls resolve by roll mode, a track moves, and the story routes to the next node.",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "compatibility": {
     "minimum": "13",
     "verified": "14"
@@ -34,5 +34,5 @@
     ]
   },
   "manifest": "https://raw.githubusercontent.com/EvGuy/meridian-run-asset-transfer/main/meridian-challenge/module.json",
-  "download": "https://raw.githubusercontent.com/EvGuy/meridian-run-asset-transfer/7709d08874e824ddb52c6c910804fc6d3efae26c/meridian-challenge/meridian-challenge.zip"
+  "download": ""
 }
