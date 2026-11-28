@@ -1,5 +1,6 @@
 /* Layout only; no drawn art. */
 .mcl-bar { display: flex; flex: 0 0 auto; flex-wrap: wrap; gap: 6px; align-items: center; padding: 4px 10px; font-size: var(--font-size-12, 12px); }
+.mcl-coin, .mcl-target, .mcl-bar > span { white-space: nowrap; line-height: 1.6; }
 .mcl-coin { border: 1px solid currentColor; border-radius: 3px; padding: 1px 8px; cursor: grab; user-select: none; }
 .mcl-target { border: 1px dashed currentColor; border-radius: 3px; padding: 1px 8px; }
 .mcl-coin.mcl-empty { opacity: 0.4; cursor: default; }

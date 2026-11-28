@@ -66,7 +66,7 @@ async function askAmount(source, target, denom) {
   const max = Number(source.system.currency[denom]) || 0;
   if (max < 1) return null;
   const value = await foundry.applications.api.DialogV2.prompt({
-    window: { title: "Move coins" },
+    window: { title: "Move coins" }, position: { width: 520, height: "auto" },
     content: `<p>${esc(source.name)} → ${esc(target.name)}</p>
       <div class="form-group"><label>${esc(denom)} (up to ${max})</label>
       <input type="number" name="amount" min="1" max="${max}" step="1" value="${max}" autofocus></div>`,

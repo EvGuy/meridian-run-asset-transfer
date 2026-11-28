@@ -102,6 +102,22 @@ async function performExit({ sceneId, regionId, tokenIds, userId }) {
 
 let openWindow = null;
 
+/* House rule: no text may spill out of its box. Buttons grow to fit their labels and wrap onto new rows. */
+const FIT_CSS = `
+.meridian-fit .form-footer { flex-wrap: wrap; gap: 8px; }
+.meridian-fit .form-footer button { flex: 1 1 auto; width: auto; height: auto; min-height: 44px;
+  padding: 8px 16px; white-space: nowrap; line-height: 1.3; }
+.meridian-fit .form-footer button[data-action="go"] { flex-basis: 100%; white-space: normal; }
+.meridian-fit h2 { text-wrap: balance; overflow-wrap: anywhere; }`;
+
+function addFitStyle() {
+  if (document.getElementById("meridian-fit-style")) return;
+  const style = document.createElement("style");
+  style.id = "meridian-fit-style";
+  style.textContent = FIT_CSS;
+  document.head.append(style);
+}
+
 export async function openExit(region) {
   const exit = exitOf(region);
   const target = exit && region.parent.regions.get(exit.to);
@@ -121,12 +137,17 @@ export async function openExit(region) {
   }
   buttons.push({ action: "stay", label: "Stay here", icon: "fa-solid fa-xmark" });
 
+  addFitStyle();
   openWindow = true;
   let choice;
   try {
     choice = await foundry.applications.api.DialogV2.wait({
+<<<<<<< Updated upstream
       classes: ["meridian-exit"],
       window: { title: "Travel" }, position: { width: 420 },
+=======
+      window: { title: label }, position: { width: 620, height: "auto" }, classes: ["meridian-fit"],
+>>>>>>> Stashed changes
       content: `<h2 style="text-align:center">${esc(label)}</h2>${hint}`,
       buttons, rejectClose: false
     });

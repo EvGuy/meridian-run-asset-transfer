@@ -2,7 +2,7 @@
   "id": "meridian-coin-lock",
   "title": "Meridian Coin Lock",
   "description": "Players can't edit coins. Coins move by drag and drop, stores and loot windows.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "compatibility": { "minimum": "13", "verified": "14" },
   "relationships": { "systems": [{ "id": "dnd5e", "type": "system" }] },
   "esmodules": ["scripts/main.js"],
