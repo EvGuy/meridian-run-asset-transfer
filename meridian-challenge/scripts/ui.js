@@ -25,19 +25,23 @@ function trackHtml(v) {
 }
 
 function resultHtml(r) {
-  const story = r.narrative ? `<p class="mc-story">${esc(r.narrative)}</p>` : "";
-  if (!r.rolls.length) return `<div class="mc-result"><div class="mc-result-title">${esc(r.label)}</div>${story}${eventsHtml(r.events)}</div>`;
+  const cls = r.degree == null ? "" : r.success ? "ok" : "bad";
+  const line = r.line ? `<div class="mc-line">${esc(r.line)}</div>` : "";
+  const verdict = r.degreeLabel ? `<div class="mc-bigverdict ${cls} ${/critical/i.test(r.degreeLabel) ? "crit" : ""}">${esc(r.degreeLabel)}</div>` : "";
+  return `<div class="mc-result-big ${cls}"><div class="mc-result-title">${esc(r.label)}</div>${line}${verdict}</div>`;
+}
+
+function gmResultHtml(r) {
   const rows = r.rolls
     .map((x) => {
       const tag = x.role === "lead" ? "lead" : x.role === "support" ? (x.ok ? "supports +1" : x.fumble ? "fumbles −1" : "no help") : "";
       return `<tr><td>${esc(x.name)}</td><td>${x.nat}${x.mod >= 0 ? "+" : ""}${x.mod} = <b>${x.total}</b></td><td>${tag}</td></tr>`;
     })
     .join("");
-  return `<div class="mc-result ${r.success ? "ok" : "bad"}">
-    <div class="mc-result-title">${esc(r.label)}</div>${story}<div class="mc-mode">${esc(r.modeLabel)}</div>
-    <table class="mc-rolls">${rows}</table>
-    <div class="mc-verdict">${r.groupTotal} vs DC ${r.dc} — ${esc(r.degreeLabel)}</div>
-    ${r.notes.map((n) => `<div class="mc-note">${esc(n)}</div>`).join("")}${eventsHtml(r.events)}</div>`;
+  return `<div class="mc-gm-box mc-gm-result"><b>What happened</b>
+    ${r.explanation ? `<p class="mc-gm-expl">${esc(r.explanation)}</p>` : ""}
+    ${r.rolls.length ? `<div class="mc-hint">${esc(r.modeLabel)}</div><table class="mc-rolls">${rows}</table><div><b>${r.groupTotal}</b> vs DC ${r.dc} — ${esc(r.degreeLabel)}</div>` : ""}
+    ${r.notes.map((n) => `<div class="mc-hint">${esc(n)}</div>`).join("")}${eventsHtml(r.events)}</div>`;
 }
 
 const eventsHtml = (ev) => (ev.length ? `<ul class="mc-events">${ev.map((e) => `<li>${esc(e)}</li>`).join("")}</ul>` : "");
@@ -96,6 +100,7 @@ function gmHtml(v, g) {
   if (g.hiddenShape) {
     parts.push(`<div class="mc-gm-box"><b>Hidden shape</b> ${Object.entries(g.hiddenShape).map(([k, n]) => `${k}≥${n}`).join(", ")} <span class="mc-hint">· revealed: ${g.revealedLanes.length ? g.revealedLanes.join(", ") : "nothing yet"}</span></div>`);
   }
+  if (g.result) parts.push(gmResultHtml(g.result));
   if (g.dcMod || g.lockedCount) parts.push(`<div class="mc-gm-box">Active: ${g.dcMod ? `DC +${g.dcMod} next round. ` : ""}${g.lockedCount ? `Closed approaches: ${g.lockedCount}` : ""}</div>`);
   if (g.canVote) {
     const rows = v.party
@@ -131,7 +136,7 @@ export class ChallengeWindow extends ApplicationV2 {
     id: "meridian-challenge-window",
     classes: ["meridian-challenge", "mc-challenge-window"],
     window: { title: "Challenge", resizable: true },
-    position: { width: 1020, height: 860 }
+    position: { width: 1120, height: 1000 }
   };
 
   get title() {

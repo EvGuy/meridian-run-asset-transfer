@@ -69,7 +69,7 @@
 .mc-stone { flex: 1 1 auto; min-width: 0; min-height: 0; display: flex; gap: 14px; padding: 0; box-sizing: border-box; }
 .mc-card { position: relative; flex: 1 1 auto; min-width: 0; min-height: 0; display: flex; }
 .mc-card-in { position: relative; flex: 1 1 auto; min-width: 0; min-height: 0; display: flex; flex-direction: column; padding: 4px 10px; box-sizing: border-box; color: #2a1d10; }
-.mc-scene { position: relative; flex: 0 0 auto; width: 100%; aspect-ratio: 3 / 1; max-height: 40%; overflow: hidden; margin-bottom: 8px; }
+.mc-scene { position: relative; flex: 0 0 auto; width: 100%; aspect-ratio: 8 / 5; max-height: 50%; overflow: hidden; margin-bottom: 14px; }
 .mc-scene img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block;
   -webkit-mask-image: linear-gradient(to right, transparent, #000 10%, #000 90%, transparent), linear-gradient(to bottom, transparent, #000 14%, #000 86%, transparent); -webkit-mask-composite: source-in; mask-image: linear-gradient(to right, transparent, #000 10%, #000 90%, transparent), linear-gradient(to bottom, transparent, #000 14%, #000 86%, transparent); mask-composite: intersect; }
 .mc-scene img.mc-fade { animation: mc-fadein .8s ease both; }
@@ -112,3 +112,38 @@
 
 .mc-card .mc-rolls, .mc-card .mc-rolls tr, .mc-card .mc-rolls td { background: transparent !important; }
 .mc-card .mc-rolls tr:nth-child(odd) td { background: rgba(90,28,28,.06) !important; }
+
+/* v0.4.2: bigger text, no track bar for now, more spacing */
+@font-face { font-family: "MC Great Vibes"; src: url("../fonts/great-vibes-latin-400-normal.woff2") format("woff2"); font-display: swap; }
+.mc-card .mc-track { display: none !important; }
+.mc-card .mc-main { gap: 1.1rem; justify-content: space-evenly; }
+.mc-card .mc-desc { font-size: 1.5rem; line-height: 1.5; margin: .3rem 0 .2rem; }
+.mc-card .mc-story { font-size: 1.4rem; line-height: 1.55; margin: .6rem 0 .9rem; }
+.mc-card .mc-mode-badge { font-size: 1rem; padding: .25rem .8rem; }
+.mc-card .mc-options { gap: .45rem; margin-top: .6rem; }
+.mc-card .mc-vote { font-size: 1.4rem; padding: .75rem .5rem; }
+.mc-card .mc-num { font-size: 1.4rem; min-width: 2rem; }
+.mc-card .mc-tag { font-size: 1.05rem; padding: .2rem .6rem; }
+.mc-card .mc-count { font-size: 1.3rem; }
+.mc-card .mc-voter { font-size: 1.05rem; padding: .2rem .7rem; }
+.mc-card .mc-wait, .mc-card .mc-note, .mc-card .mc-mode { font-size: 1.15rem; }
+.mc-card .mc-result-title { font-size: 1.5rem; }
+.mc-card .mc-rolls { font-size: 1.1rem; }
+.mc-card .mc-verdict { font-size: 1.3rem; }
+.mc-card .mc-outcome-kind { font-size: 1.6rem; } .mc-card .mc-outcome-detail { font-size: 1.2rem; }
+
+/* result screen: short line + big cursive verdict (players); detail is GM-only */
+.mc-card .mc-result-big { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .6rem; text-align: center; padding: 1rem 1rem 0; }
+.mc-card .mc-result-big .mc-result-title { font-size: 1.3rem; color: #5a1c1c; font-variant: small-caps; letter-spacing: .04em; }
+.mc-card .mc-line { font-size: 2rem; font-style: italic; color: #2a1d10; line-height: 1.3; }
+.mc-card .mc-bigverdict { font-family: "MC Great Vibes", "Snell Roundhand", cursive; font-size: 6.2rem; line-height: 1.05; margin-top: .2rem; text-shadow: 0 1px 0 rgba(255,240,200,.5); }
+.mc-card .mc-bigverdict.crit { font-size: 5.4rem; }
+.mc-card .mc-bigverdict.ok { color: #2d6b34; }
+.mc-card .mc-bigverdict.bad { color: #a3241c; }
+.mc-gm-result { font-size: .85rem; }
+.mc-gm-result .mc-gm-expl { margin: .3rem 0; font-style: italic; line-height: 1.45; }
+.mc-stone .mc-gm { flex: 0 0 21rem !important; }
+.mc-chat .mc-chat-line { font-size: 1.1em; font-style: italic; margin: .2rem 0; }
+.mc-chat .mc-chat-verdict { font-family: "MC Great Vibes", cursive; font-size: 2.6em; margin: 0; line-height: 1.1; }
+.mc-chat .mc-chat-verdict.ok { color: #2d6b34; } .mc-chat .mc-chat-verdict.bad { color: #a3241c; }
+.mc-card .mc-learned { font-size: 1.15rem; }

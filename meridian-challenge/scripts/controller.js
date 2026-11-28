@@ -121,20 +121,42 @@ function narrativeFor(option, result) {
   }
 }
 
+function lineFor(option, result) {
+  if (!result) return option.successLine || "";
+  const ok = result.success;
+  switch (result.degree) {
+    case DEGREES.CRIT_SUCCESS: return option.critSuccessLine || option.successLine || "They bought it.";
+    case DEGREES.SUCCESS: return option.successLine || "They bought it.";
+    case DEGREES.CRIT_FAILURE: return option.critFailureLine || option.failureLine || "They didn't buy it.";
+    default: return ok ? option.successLine || "They bought it." : option.failureLine || "They didn't buy it.";
+  }
+}
+
+/** Player-safe: a short line and the verdict only. */
 function publicResult(lr) {
+  if (!lr) return null;
+  const { option, result } = lr;
+  return {
+    label: option.label,
+    line: lineFor(option, result),
+    degree: result?.degree ?? null,
+    degreeLabel: result ? DEGREE_LABEL[result.degree] : null,
+    success: result?.success ?? null
+  };
+}
+
+/** GM-only explanation of what happened. */
+function gmResult(lr) {
   if (!lr) return null;
   const { option, result, events } = lr;
   return {
     label: option.label,
-    narrative: narrativeFor(option, result),
-    mode: result?.mode ?? null,
+    explanation: narrativeFor(option, result),
     modeLabel: result ? MODE_LABEL[result.mode] : null,
     rolls: result?.rolls.map((r) => ({ name: r.name, nat: r.nat, mod: r.mod, total: r.total, role: r.role, ok: r.ok, fumble: r.fumble })) ?? [],
     dc: result?.dcInfo.shown ?? null,
     groupTotal: result?.groupTotal ?? null,
-    degree: result?.degree ?? null,
     degreeLabel: result ? DEGREE_LABEL[result.degree] : null,
-    success: result?.success ?? null,
     notes: result?.notes ?? [],
     events: events.filter((e) => !/CRISIS|Consequence queued/.test(e))
   };
@@ -211,6 +233,7 @@ export function gmView() {
     lockedCount: run.lockedOptions.length,
     tieOptions: ui.tie ? ui.tie.map((id) => node.options.find((o) => o.id === id)) : null,
     winner,
+    result: gmResult(ui.lastResult),
     leadId: ui.leadId,
     waitingForVotes: !!node && !run.finished && !ui.lastResult && !ui.winnerId && !ui.tie,
     canVote: !!node && !run.finished && !ui.lastResult,
@@ -298,20 +321,26 @@ export async function setLead(leadId) {
 
 const rng = () => (CONFIG.Dice?.randomUniform ? CONFIG.Dice.randomUniform() : Math.random());
 
-function chatCard(node, option, result, events, run) {
+function chatCards(node, option, result, events, run) {
   const esc = foundry.utils.escapeHTML;
+  const line = lineFor(option, result);
+  const cls = result ? (result.success ? "ok" : "bad") : "";
+  const pub = `<div class="mc-chat">
+    <h3>${esc(option.label)}</h3>
+    ${line ? `<p class="mc-chat-line">${esc(line)}</p>` : ""}
+    ${result ? `<p class="mc-chat-verdict ${cls}">${esc(DEGREE_LABEL[result.degree])}</p>` : ""}
+    ${run.finished ? `<p><b>${esc(run.outcome.kind.toUpperCase())}</b> — ${esc(run.outcome.text)}</p>` : ""}
+  </div>`;
   const rows = result
     ? result.rolls.map((r) => `<tr><td>${esc(r.name)}</td><td>${r.nat}${r.mod >= 0 ? "+" : ""}${r.mod} = <b>${r.total}</b></td><td>${r.role === "lead" ? "lead" : r.role === "support" ? (r.ok ? "supports +1" : r.fumble ? "fumbles −1" : "no help") : ""}</td></tr>`).join("")
     : "";
   const shown = events.filter((e) => !/CRISIS|Consequence queued/.test(e));
-  return `<div class="mc-chat">
-    <h3>${esc(option.label)}</h3>
+  const gm = `<div class="mc-chat"><h3>GM notes: ${esc(option.label)}</h3>
     ${narrativeFor(option, result) ? `<p><i>${esc(narrativeFor(option, result))}</i></p>` : ""}
     ${result ? `<div class="mc-chat-mode">${esc(MODE_LABEL[result.mode])}</div><table>${rows}</table>
     <p><b>${result.groupTotal}</b> vs DC ${result.dcInfo.shown} — <b>${DEGREE_LABEL[result.degree]}</b></p>` : ""}
-    ${shown.length ? `<ul>${shown.map((e) => `<li>${esc(e)}</li>`).join("")}</ul>` : ""}
-    ${run.finished ? `<p><b>${esc(run.outcome.kind.toUpperCase())}</b> — ${esc(run.outcome.text)}</p>` : ""}
-  </div>`;
+    ${shown.length ? `<ul>${shown.map((e) => `<li>${esc(e)}</li>`).join("")}</ul>` : ""}</div>`;
+  return { pub, gm };
 }
 
 export async function doRoll() {
@@ -324,7 +353,10 @@ export async function doRoll() {
   const { run: next, events } = applyResult(seq, run, node, option, result);
   state.ctl.run = next;
   state.ctl.ui = { ...freshUi(), lastResult: { node, option, result, events } };
-  await ChatMessage.create({ content: chatCard(node, option, result, events, next), speaker: { alias: seq.name || "Challenge" } });
+  const cards = chatCards(node, option, result, events, next);
+  const speaker = { alias: seq.name || "Challenge" };
+  await ChatMessage.create({ content: cards.pub, speaker });
+  await ChatMessage.create({ content: cards.gm, speaker, whisper: ChatMessage.getWhisperRecipients("GM").map((u) => u.id) });
   await broadcast();
 }
 
