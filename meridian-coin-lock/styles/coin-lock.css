@@ -1,5 +1,6 @@
 /* Layout only; no drawn art. */
-.mcl-bar { display: flex; flex: 0 0 auto; flex-wrap: wrap; gap: 6px; align-items: center; padding: 4px 10px; font-size: var(--font-size-12, 12px); }
+.mcl-bar { display: flex; flex: 0 0 auto; flex-wrap: wrap; gap: 6px; align-items: center; padding: 4px 10px; font-size: var(--font-size-12, 12px);
+  background: #1b1a22; color: #f0ede3; border-bottom: 1px solid #6b6558; }
 .mcl-coin, .mcl-target, .mcl-bar > span { white-space: nowrap; line-height: 1.6; }
 .mcl-coin { border: 1px solid currentColor; border-radius: 3px; padding: 1px 8px; cursor: grab; user-select: none; }
 .mcl-target { border: 1px dashed currentColor; border-radius: 3px; padding: 1px 8px; }
