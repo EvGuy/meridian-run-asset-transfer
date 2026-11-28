@@ -111,11 +111,22 @@ function votesByActor() {
   return state.ctl.ui.votes;
 }
 
+function narrativeFor(option, result) {
+  if (!result) return option.successText || "";
+  switch (result.degree) {
+    case DEGREES.CRIT_SUCCESS: return option.critSuccessText || option.successText || "";
+    case DEGREES.SUCCESS: return option.successText || "";
+    case DEGREES.CRIT_FAILURE: return option.critFailureText || option.failureText || "";
+    default: return option.failureText || "";
+  }
+}
+
 function publicResult(lr) {
   if (!lr) return null;
   const { option, result, events } = lr;
   return {
     label: option.label,
+    narrative: narrativeFor(option, result),
     mode: result?.mode ?? null,
     modeLabel: result ? MODE_LABEL[result.mode] : null,
     rolls: result?.rolls.map((r) => ({ name: r.name, nat: r.nat, mod: r.mod, total: r.total, role: r.role, ok: r.ok, fumble: r.fumble })) ?? [],
@@ -133,11 +144,13 @@ export function publicView() {
   const { seq, run, party, ui } = state.ctl;
   const node = currentNode();
   const avail = node && !run.finished ? availableOptions(seq, run, node) : [];
+  const sceneNode = ui.lastResult && !run.finished ? ui.lastResult.node : node;
   const counts = node ? tallyVotes(node.options, votesByActor()).counts : {};
   return {
     closed: false,
     controllerId: state.ctl.controllerId,
     name: seq.name,
+    scene: sceneNode?.image || "",
     track: seq.track ? { lanes: seq.track.lanes, threshold: seq.track.threshold, max: DEFAULTS.laneMax } : null,
     trackValues: run.track,
     rounds: seq.rounds,
@@ -293,6 +306,7 @@ function chatCard(node, option, result, events, run) {
   const shown = events.filter((e) => !/CRISIS|Consequence queued/.test(e));
   return `<div class="mc-chat">
     <h3>${esc(option.label)}</h3>
+    ${narrativeFor(option, result) ? `<p><i>${esc(narrativeFor(option, result))}</i></p>` : ""}
     ${result ? `<div class="mc-chat-mode">${esc(MODE_LABEL[result.mode])}</div><table>${rows}</table>
     <p><b>${result.groupTotal}</b> vs DC ${result.dcInfo.shown} — <b>${DEGREE_LABEL[result.degree]}</b></p>` : ""}
     ${shown.length ? `<ul>${shown.map((e) => `<li>${esc(e)}</li>`).join("")}</ul>` : ""}

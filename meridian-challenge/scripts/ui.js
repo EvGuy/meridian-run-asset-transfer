@@ -25,7 +25,8 @@ function trackHtml(v) {
 }
 
 function resultHtml(r) {
-  if (!r.rolls.length) return `<div class="mc-result"><div class="mc-result-title">${esc(r.label)}</div>${eventsHtml(r.events)}</div>`;
+  const story = r.narrative ? `<p class="mc-story">${esc(r.narrative)}</p>` : "";
+  if (!r.rolls.length) return `<div class="mc-result"><div class="mc-result-title">${esc(r.label)}</div>${story}${eventsHtml(r.events)}</div>`;
   const rows = r.rolls
     .map((x) => {
       const tag = x.role === "lead" ? "lead" : x.role === "support" ? (x.ok ? "supports +1" : x.fumble ? "fumbles −1" : "no help") : "";
@@ -33,7 +34,7 @@ function resultHtml(r) {
     })
     .join("");
   return `<div class="mc-result ${r.success ? "ok" : "bad"}">
-    <div class="mc-result-title">${esc(r.label)}</div><div class="mc-mode">${esc(r.modeLabel)}</div>
+    <div class="mc-result-title">${esc(r.label)}</div>${story}<div class="mc-mode">${esc(r.modeLabel)}</div>
     <table class="mc-rolls">${rows}</table>
     <div class="mc-verdict">${r.groupTotal} vs DC ${r.dc} — ${esc(r.degreeLabel)}</div>
     ${r.notes.map((n) => `<div class="mc-note">${esc(n)}</div>`).join("")}${eventsHtml(r.events)}</div>`;
@@ -69,7 +70,7 @@ function bodyHtml(v, isCtl) {
   const me = myActorId(v);
   const totalVotes = Object.values(v.votes).filter(Boolean).length;
   const opts = v.node.options
-    .map((o) => {
+    .map((o, idx) => {
       const n = v.counts[o.id] ?? 0;
       const pct = totalVotes ? Math.round((n / totalVotes) * 100) : 0;
       const mine = me && v.votes[me] === o.id;
@@ -78,12 +79,12 @@ function bodyHtml(v, isCtl) {
       if (o.lane) tags.push(`→ ${o.lane}`);
       return `<button class="mc-vote ${o.locked ? "locked" : ""} ${mine ? "mine" : ""}" data-act="vote" data-id="${o.id}" ${o.locked || !me ? "disabled" : ""}>
         <span class="mc-fill" style="width:${pct}%"></span>
-        <span class="mc-label">${esc(o.label)}${o.locked ? ` <em>(${esc(o.reason)})</em>` : ""}${mine ? " ✓" : ""}</span>
+        <span class="mc-num">${idx + 1}:</span><span class="mc-label">${esc(o.label)}${o.locked ? ` <em>(${esc(o.reason)})</em>` : ""}${mine ? " ✓" : ""}</span>
         <span class="mc-tag">${esc(tags.join(" · "))}</span><span class="mc-count">${n}</span></button>`;
     })
     .join("");
   const names = v.party.map((p) => `<span class="mc-voter ${v.votes[p.id] ? "voted" : ""}">${esc(p.name)}</span>`).join("");
-  parts.push(`${v.node.image ? `<img class="mc-img" src="${esc(v.node.image)}">` : ""}<div class="mc-desc">${esc(v.node.description)}</div>
+  parts.push(`<div class="mc-desc">${esc(v.node.description)}</div>
     <div class="mc-mode-badge">${esc(v.node.modeLabel)}</div><div class="mc-options">${opts}</div>
     <div class="mc-voters">${names}</div>
     ${!me && !isCtl ? `<div class="mc-wait">You are not in this challenge.</div>` : ""}
@@ -129,9 +130,9 @@ function gmHtml(v, g) {
 export class ChallengeWindow extends ApplicationV2 {
   static DEFAULT_OPTIONS = {
     id: "meridian-challenge-window",
-    classes: ["meridian-challenge"],
+    classes: ["meridian-challenge", "mc-challenge-window"],
     window: { title: "Challenge", resizable: true },
-    position: { width: 820, height: 720 }
+    position: { width: 1020, height: 860 }
   };
 
   get title() {
@@ -142,8 +143,11 @@ export class ChallengeWindow extends ApplicationV2 {
     const v = state.view;
     if (!v) return "";
     const g = C.gmView();
+    const fade = state.lastScene !== v.scene;
+    state.lastScene = v.scene;
+    const scene = `<div class="mc-scene">${v.scene ? `<img class="${fade ? "mc-fade" : ""}" src="${esc(v.scene)}" alt="">` : ""}</div>`;
     const main = `<div class="mc-main">${trackHtml(v)}${v.revealed.length ? `<div class="mc-learned"><b>What you've read in the room</b>${v.revealed.map((r) => `<div>· ${esc(r.text)}</div>`).join("")}</div>` : ""}${bodyHtml(v, !!g)}</div>`;
-    return `<div class="mc-wrap ${g ? "has-gm" : ""}">${main}${g ? gmHtml(v, g) : ""}</div>`;
+    return `<div class="mc-frame"><div class="mc-stone"><div class="mc-card"><div class="mc-card-in">${scene}<div class="mc-wrap">${main}</div></div></div>${g ? gmHtml(v, g) : ""}</div></div>`;
   }
 
   _replaceHTML(result, content) {
