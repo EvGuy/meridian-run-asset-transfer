@@ -43,6 +43,16 @@ export function lightOf(item) {
   return PRESETS[key] ?? null;
 }
 
+// The Light cantrip (PHB 2024): 20 ft bright plus 20 ft dim. The table rule is 30 real minutes.
+export const SPELL_LIGHT = { bright: 20, dim: 40, angle: 360, color: "#fff2cc", animation: "pulse" };
+export const SPELL_MS = 30 * 60 * 1000;
+export const isLightSpell = item => item?.type === "spell"
+  && (item.system?.identifier === "light" || item.name?.trim().toLowerCase() === "light");
+export const spellRunning = (data, now) => !!data && Number(data.expires) > now;
+
+// The spell wins a tie with a held light of the same reach.
+export const brighter = (spell, held) => (spell && (!held || spell.dim >= held.dim)) ? spell : held;
+
 // How many hands an item takes: 0, 1 or 2.
 export function handsOf(item) {
   if (!canBeHeld(item)) return 0;

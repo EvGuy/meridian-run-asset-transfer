@@ -11,6 +11,7 @@ globalThis.foundry = {
 globalThis.game = { user: { id: "u" }, users: { activeGM: null }, actors: [], scenes: Object.assign([], { contents: [] }),
   settings: { register: (m, k, o) => (settings[k] = o.default), get: (m, k) => settings[k] } };
 globalThis.ui = { notifications: { info() {} } };
+globalThis.setInterval = () => 0;
 await import("../scripts/main.js");
 hooks.init[0]();
 
@@ -21,7 +22,7 @@ const token = { actorId: "a", actorLink: true, flags: {}, light: { bright: 0, di
 game.scenes.contents.push({ tokens: [token] });
 const mk = (id, name, type, eq) => ({ id, name, type, flags: {}, system: { equipped: eq, quantity: 1, type: {}, properties: new Set() } });
 const items = [mk("1", "Club", "weapon", true), mk("2", "Dagger", "weapon", true), mk("3", "Torch", "consumable", true)];
-const actor = { id: "a", uuid: "Actor.a", name: "Dorf", type: "character", isOwner: true, items,
+const actor = { getFlag() {}, id: "a", uuid: "Actor.a", name: "Dorf", type: "character", isOwner: true, items,
   async updateEmbeddedDocuments(t, ups) { for (const u of ups) items.find(i => i.id === u._id).system.equipped = u["system.equipped"]; } };
 items.forEach(i => (i.actor = actor));
 const wait = () => new Promise(r => setTimeout(r, 20));

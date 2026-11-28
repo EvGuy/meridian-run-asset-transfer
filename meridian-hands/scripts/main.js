@@ -1,4 +1,5 @@
-import { ID, PRESETS, canBeHeld, handsOf, itemsToRelease, bestLight } from "./logic.js";
+import { ID, PRESETS, canBeHeld, handsOf, itemsToRelease, bestLight, brighter } from "./logic.js";
+import { registerSpell, selfSpell, sweepSpells } from "./spell.js";
 
 const setting = k => game.settings.get(ID, k);
 const limitApplies = actor => actor?.type === "character" && setting("enforceHands");
@@ -71,7 +72,8 @@ function tokensOf(actor) {
 }
 
 async function syncActor(actor) {
-  const light = setting("lights") ? bestLight(Array.from(actor.items)) : null;
+  const held = setting("lights") ? bestLight(Array.from(actor.items)) : null;
+  const light = brighter(selfSpell(actor), held);
   for (const token of tokensOf(actor)) await syncToken(token, light);
 }
 
@@ -86,7 +88,7 @@ async function syncToken(token, light) {
     if (!saved) update[`flags.${ID}.baseLight`] = token.light.toObject();
     const now = token.light;
     if (saved && now.bright === want.bright && now.dim === want.dim && now.angle === want.angle
-      && String(now.color) === want.color) return;
+      && String(now.color) === want.color && now.animation?.type === want.animation.type) return;
     await token.update(update);
   } else if (saved) {
     // Put back whatever light the token had before.
@@ -102,15 +104,17 @@ function syncAll() {
   for (const s of game.scenes) for (const t of s.tokens) if (t.actor) actors.set(t.actor.uuid, t.actor);
   for (const a of actors.values()) {
     // Only touch actors that hold a light now, or whose token still carries one from us.
-    if (bestLight(Array.from(a.items)) || tokensOf(a).some(t => t.getFlag(ID, "baseLight"))) queueSync(a);
+    if (selfSpell(a) || bestLight(Array.from(a.items)) || tokensOf(a).some(t => t.getFlag(ID, "baseLight"))) queueSync(a);
   }
 }
 
-Hooks.once("ready", syncAll);
+Hooks.once("ready", () => { syncAll(); sweepSpells(queueSync); });
+registerSpell(queueSync);
 Hooks.on("createItem", item => item.actor && queueSync(item.actor));
 Hooks.on("deleteItem", item => item.actor && queueSync(item.actor));
 Hooks.on("createToken", token => {
-  if (token.actor && (bestLight(Array.from(token.actor.items)) || token.getFlag(ID, "baseLight"))) queueSync(token.actor);
+  const a = token.actor;
+  if (a && (selfSpell(a) || bestLight(Array.from(a.items)) || token.getFlag(ID, "baseLight"))) queueSync(a);
 });
 
 /* ---------- GM item settings ---------- */

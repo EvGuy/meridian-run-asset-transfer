@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { handsOf, lightOf, itemsToRelease, bestLight } from "../scripts/logic.js";
+import { handsOf, lightOf, itemsToRelease, bestLight, isLightSpell, spellRunning, brighter, SPELL_LIGHT, SPELL_MS, PRESETS } from "../scripts/logic.js";
 let n = 0;
 const it = (name, type, o = {}) => ({ id: "i" + n++, name, type,
   system: { equipped: !!o.eq, quantity: 1, type: { value: o.sub ?? "" }, properties: new Set(o.props ?? []) },
@@ -56,4 +56,17 @@ test("brightest held light wins", () => {
   const items = [it("Torch", "consumable", { eq: true }), it("Hooded Lantern", "consumable", { eq: true }), it("Bullseye Lantern", "consumable")];
   assert.equal(bestLight(items).dim, 60);
   assert.equal(bestLight([it("Torch", "consumable")]), null);
+});
+
+test("Light spell detection, 30 minute life, and tie with a torch", () => {
+  assert.ok(isLightSpell({ type: "spell", name: "Light", system: {} }));
+  assert.ok(!isLightSpell({ type: "spell", name: "Dancing Lights", system: { identifier: "dancing-lights" } }));
+  assert.ok(!isLightSpell({ type: "feat", name: "Light", system: {} }));
+  assert.equal(SPELL_MS, 1800000);
+  assert.ok(spellRunning({ expires: 100 }, 99));
+  assert.ok(!spellRunning({ expires: 100 }, 100));
+  assert.ok(!spellRunning(undefined, 0));
+  assert.equal(brighter(SPELL_LIGHT, PRESETS.torch), SPELL_LIGHT);
+  assert.equal(brighter(SPELL_LIGHT, PRESETS.hooded), PRESETS.hooded);
+  assert.equal(brighter(null, null), null);
 });
