@@ -52,9 +52,15 @@ export function isOpenLoot(actor, user) {
   return actor.testUserPermission(user, "OBSERVER");
 }
 
+/** Meridian Bertrude's chest: open to players only while the GM has him revealed. */
+export const isBertrude = (actor) => {
+  const f = actor?.flags?.["meridian-bertrude"];
+  return !!f?.isChest && !!f.revealed && !actor.isToken;
+};
+
 export function canTakeFrom(actor, user, users, partyId) {
   if (!actor) return false;
-  if (user.isGM) return true;
+  if (user.isGM || isBertrude(actor)) return true;
   if (isParty(actor, partyId)) return actor.testUserPermission(user, "OBSERVER");
   if (isPlayerCharacter(actor, users, partyId)) return actor.testUserPermission(user, "OWNER");
   return isOpenLoot(actor, user);
@@ -63,7 +69,7 @@ export function canTakeFrom(actor, user, users, partyId) {
 export function canGiveTo(actor, user, users, partyId) {
   if (!actor) return false;
   if (user.isGM) return true;
-  return isParty(actor, partyId) || isPlayerCharacter(actor, users, partyId);
+  return isBertrude(actor) || isParty(actor, partyId) || isPlayerCharacter(actor, users, partyId);
 }
 
 /** Returns a refusal reason, or null if the move is legal. */

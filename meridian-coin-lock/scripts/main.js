@@ -1,4 +1,4 @@
-import { MOD, changesCurrency, playerMayWrite, canTakeFrom, canGiveTo, isPlayerCharacter, checkMove, applyMove } from "./rules.js";
+import { MOD, changesCurrency, playerMayWrite, canTakeFrom, canGiveTo, isBertrude, isPlayerCharacter, checkMove, applyMove } from "./rules.js";
 
 const QUERY = `${MOD}.move`;
 const DRAG = "meridian-coin";
@@ -113,7 +113,7 @@ function windowActor(app) {
   // Item Piles may ship minified class names, so also check its window CSS classes.
   const css = (app.options?.classes ?? []).join(" ");
   if (/item-piles-merchant/.test(css) || /Merchant|Dialog|Manager|Config|Settings/i.test(name)) return null;
-  if (!/item-pile-inventory/.test(css) && !/Sheet|ItemPile/i.test(name)) return null;
+  if (!/item-pile-inventory/.test(css) && !/Sheet|ItemPile|Bertrude/i.test(name)) return null;
   const actor = app.actor ?? app.document ?? app.options?.svelte?.props?.actor;
   if (actor?.documentName !== "Actor" || !actor.system?.currency) return null;
   return actor;
@@ -143,7 +143,7 @@ function buildBar(actor) {
   }
   // Players can't open each other's sheets, so give them name tags to drop coins on.
   const users = [...game.users], pid = partyId();
-  const others = game.actors.filter((a) => a.id !== actor.id && (a.id === pid || isPlayerCharacter(a, users, pid)));
+  const others = game.actors.filter((a) => a.id !== actor.id && (a.id === pid || isBertrude(a) || isPlayerCharacter(a, users, pid)));
   if (others.length) {
     const to = document.createElement("span");
     to.textContent = "Drop on:";

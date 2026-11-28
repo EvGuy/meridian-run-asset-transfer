@@ -5,6 +5,7 @@ const QUERY = `${MOD}.act`;
 const esc = (s) => foundry.utils.escapeHTML(String(s ?? ""));
 const get = (k) => game.settings.get(MOD, k);
 const chest = () => game.actors.find((a) => a.getFlag(MOD, "isChest")) ?? null;
+const revealed = () => !!chest()?.getFlag(MOD, "revealed");
 const today = () => dayNumber(game.time.worldTime, get("dayOffset"));
 
 async function say(kind, extra = "") {
@@ -46,7 +47,7 @@ async function move(item, to, quantity, flags) {
 async function act({ type, actorId, itemId, quantity = 1, userId }) {
   const user = game.users.get(userId), box = chest(), pc = game.actors.get(actorId);
   if (!user || !box) return no("Bertrude isn't available.");
-  if (!user.isGM && !get("revealed")) return no("Bertrude isn't available.");
+  if (!user.isGM && !revealed()) return no("Bertrude isn't available.");
   if (!user.isGM && game.paused) return no("The game is paused.");
   if (!pc || pc === box || !pc.testUserPermission(user, "OWNER")) return no("Pick one of your own characters.");
 
@@ -123,10 +124,11 @@ function makeClass() {
   const { ApplicationV2 } = foundry.applications.api;
   return class BertrudeWindow extends ApplicationV2 {
     static DEFAULT_OPTIONS = {
-      id: "meridian-bertrude", window: { title: "Bertrude", resizable: true },
+      id: "meridian-bertrude", classes: ["meridian-bertrude-window"], window: { title: "Bertrude", resizable: true },
       position: { width: 620, height: 640 }
     };
     actorId = game.user.character?.id ?? null;
+    get actor() { return chest(); } // lets Coin Lock add its coin bar
 
     async _renderHTML() {
       const box = chest();
@@ -142,8 +144,8 @@ function makeClass() {
       const carried = (pc?.items.filter((i) => !checkMovable(i, 1)) ?? []).map((i) => row(label(i),
         button("store", i, "Store") + (checkFeed(i) ? "" : button("feed", i, "Taste Test")))).join("");
       const options = mine.map((a) => `<option value="${a.id}" ${a === pc ? "selected" : ""}>${esc(a.name)}</option>`).join("");
-      const gm = game.user.isGM ? row(`GM: ${get("revealed") ? "players can use him" : "hidden from players"}`,
-        `<button type="button" data-gm="reveal">${get("revealed") ? "Hide" : "Reveal"}</button>
+      const gm = game.user.isGM ? row(`GM: ${revealed() ? "players can use him" : "hidden from players"}`,
+        `<button type="button" data-gm="reveal">${revealed() ? "Hide" : "Reveal"}</button>
          <button type="button" data-gm="adv">${get("nextAdvantage") ? "Advantage set" : "Give advantage"}</button>
          <button type="button" data-gm="day">New day</button>`) : "";
       return `${gm}<p><strong>${totalWeight(box.items).toFixed(1)} / ${get("limit")} lb</strong></p>
@@ -156,7 +158,7 @@ function makeClass() {
       content.querySelector("select").addEventListener("change", (ev) => { this.actorId = ev.target.value; this.render(); });
       for (const b of content.querySelectorAll("button")) b.addEventListener("click", async () => {
         const { type, item, gm } = b.dataset;
-        if (gm === "reveal") await game.settings.set(MOD, "revealed", !get("revealed"));
+        if (gm === "reveal") await chest().setFlag(MOD, "revealed", !revealed());
         else if (gm === "adv") await game.settings.set(MOD, "nextAdvantage", !get("nextAdvantage"));
         else if (gm === "day") await game.settings.set(MOD, "dayOffset", get("dayOffset") + 1);
         else {
@@ -182,7 +184,7 @@ function makeClass() {
 let Window, greeted = false;
 async function open() {
   if (!chest()) return ui.notifications.warn("No actor is set up as Bertrude yet.");
-  if (!game.user.isGM && !get("revealed")) return;
+  if (!game.user.isGM && !revealed()) return;
   Window ??= makeClass();
   win ??= new Window();
   await win.render({ force: true });
@@ -193,10 +195,10 @@ Hooks.once("init", () => {
   const reg = (key, data) => game.settings.register(MOD, key, { scope: "world", config: false, onChange: refresh, ...data });
   reg("limit", { name: "Weight limit (lb)", type: Number, default: 300, config: true });
   reg("dc", { name: "Persuasion DC", type: Number, default: 13, config: true });
-  reg("revealed", { type: Boolean, default: false });
   reg("nextAdvantage", { type: Boolean, default: false });
   reg("dayOffset", { type: Number, default: 0 });
   CONFIG.queries[QUERY] = perform;
+  Hooks.on("updateActor", (a) => a.getFlag(MOD, "isChest") && refresh());
   for (const hook of ["createItem", "updateItem", "deleteItem", "updateWorldTime"]) Hooks.on(hook, refresh);
 });
 
@@ -212,7 +214,7 @@ Hooks.once("ready", () => {
 Hooks.once("canvasReady", () => {
   const proto = CONFIG.Token.objectClass.prototype;
   const original = proto._onClickLeft2, canView = proto._canView;
-  const isBox = (t) => t.actor?.getFlag(MOD, "isChest") && !game.user.isGM && get("revealed");
+  const isBox = (t) => t.actor?.getFlag(MOD, "isChest") && !game.user.isGM && revealed();
   proto._canView = function (...args) { return isBox(this) || canView.apply(this, args); };
   proto._onClickLeft2 = function (...args) { return isBox(this) ? open() : original.apply(this, args); };
 });
