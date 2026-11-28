@@ -1,5 +1,6 @@
 // Meridian Perception 1.2.3 (Points of Interest: items are taken, details are investigated)
 // Region behavior "Room Perception": first entry by a player character -> secret skill roll -> whisper tiered text.
+import "./exits.js";
 const ID = "meridian-perception";
 const pending = new Set();
 
