@@ -1,0 +1,11 @@
+{
+  "id": "meridian-hands",
+  "title": "Meridian Hands & Light",
+  "description": "Two-hand limit for player characters, a 'not holding it' prompt, and token light from held light sources.",
+  "version": "1.0.0",
+  "compatibility": { "minimum": "13", "verified": "14" },
+  "relationships": { "systems": [ { "id": "dnd5e", "type": "system" } ] },
+  "esmodules": ["scripts/main.js"],
+  "manifest": "https://raw.githubusercontent.com/EvGuy/meridian-run-asset-transfer/main/meridian-hands/module.json",
+  "download": "https://raw.githubusercontent.com/EvGuy/meridian-run-asset-transfer/main/meridian-hands/meridian-hands.zip"
+}
