@@ -34,7 +34,7 @@ function squaresBetween(a, b, g) {
 
 const centerInside = (t, r) => {
   const x = t.x + t.w / 2, y = t.y + t.h / 2;
-  return x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h;
+  return x > r.x && x < r.x + r.w && y > r.y && y < r.y + r.h;
 };
 
 const inReach = (doc, rect) => squaresBetween(tokenRect(doc), rect, doc.parent.grid.size) <= REACH;
@@ -125,7 +125,8 @@ export async function openExit(region) {
   let choice;
   try {
     choice = await foundry.applications.api.DialogV2.wait({
-      window: { title: label }, position: { width: 460 },
+      classes: ["meridian-exit"],
+      window: { title: "Travel" }, position: { width: 420 },
       content: `<h2 style="text-align:center">${esc(label)}</h2>${hint}`,
       buttons, rejectClose: false
     });
@@ -219,22 +220,27 @@ export function refreshExits() {
   updateVisibility();
 }
 
-/* Walking onto a symbol opens the same window for whoever moved the token. */
+/* Walking onto a symbol opens the same window for whoever moved the token.
+ * Foundry reports one drag in several segments, so remember what was entered
+ * and open only if the token finishes the move there. */
+const entered = new Map(); // token id -> region id
 function onMove(doc, movement, operation, user) {
   if (user.id !== game.user.id || doc.parent.id !== canvas.scene?.id) return;
   const points = movement.passed?.waypoints ?? [];
-  if (points.some((p) => p.action === "displace")) return; // our own travel, or a teleport
-  const before = tokenRect(doc, { ...doc, width: doc.width, ...movement.origin });
-  const after = tokenRect(doc, { ...movement.destination });
+  if (points.some((p) => p.action === "displace")) return entered.delete(doc.id); // our travel, or a teleport
+  const before = tokenRect(doc, movement.origin);
+  const after = tokenRect(doc, movement.destination);
   for (const region of doc.parent.regions) {
     const exit = exitOf(region), rect = exit && rectOf(region);
     if (!rect || (!game.user.isGM && exit.enabled === false)) continue;
-    if (centerInside(after, rect) && !centerInside(before, rect)) {
-      doc.object?.control({ releaseOthers: false });
-      setTimeout(() => openExit(region), 600);
-      break;
-    }
+    if (centerInside(after, rect) && !centerInside(before, rect)) entered.set(doc.id, region.id);
   }
+  if (movement.pending?.waypoints?.length) return;
+  const region = doc.parent.regions.get(entered.get(doc.id));
+  entered.delete(doc.id);
+  if (!region || !centerInside(after, rectOf(region))) return;
+  doc.object?.control({ releaseOthers: false });
+  setTimeout(() => openExit(region), 600);
 }
 
 /** GM helper: make an exit on a region, or a new square region centred on (x, y). */
@@ -249,6 +255,10 @@ export async function makeExit(scene, { name, x, y, size = scene.grid.size * 2, 
 export const setExit = (region, exit) => region.update({ [`flags.${MOD}.exit`]: exit });
 
 export function registerExits() {
+  const css = document.createElement("style"); // layout only: one full-width button per row
+  css.textContent = ".meridian-exit .form-footer{flex-direction:column;align-items:stretch}" +
+    ".meridian-exit .form-footer button{flex:0 0 auto;width:100%;height:auto;min-height:2.4em}";
+  document.head.appendChild(css);
   CONFIG.queries[QUERY] = performExit;
   Hooks.on("canvasReady", refreshExits);
   Hooks.on("sightRefresh", updateVisibility);
