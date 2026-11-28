@@ -13,5 +13,5 @@
     "systems": [{ "id": "dnd5e", "type": "system" }]
   },
   "manifest": "https://raw.githubusercontent.com/EvGuy/meridian-run-asset-transfer/main/meridian-challenge/module.json",
-  "download": ""
+  "download": "https://raw.githubusercontent.com/EvGuy/meridian-run-asset-transfer/54a0a72ac0fb21754a1310039488777e3d96bf74/meridian-challenge/meridian-challenge.zip"
 }
