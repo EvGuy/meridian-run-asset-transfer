@@ -8,5 +8,5 @@
   "esmodules": ["scripts/main.js"],
   "styles": ["styles/bertrude.css"],
   "manifest": "https://raw.githubusercontent.com/EvGuy/meridian-run-asset-transfer/main/meridian-bertrude/module.json",
-  "download": "https://raw.githubusercontent.com/EvGuy/meridian-run-asset-transfer/f52fc7d5f59ee01b8d08dab3c02f781a4c5651dd/meridian-bertrude/meridian-bertrude.zip"
+  "download": "https://raw.githubusercontent.com/EvGuy/meridian-run-asset-transfer/8fe7b0662afbf8147a56f4b8ae79c755891c2b50/meridian-bertrude/meridian-bertrude.zip"
 }

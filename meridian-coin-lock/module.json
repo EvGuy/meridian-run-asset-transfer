@@ -8,5 +8,5 @@
   "esmodules": ["scripts/main.js"],
   "styles": ["styles/coin-lock.css"],
   "manifest": "https://raw.githubusercontent.com/EvGuy/meridian-run-asset-transfer/main/meridian-coin-lock/module.json",
-  "download": "https://raw.githubusercontent.com/EvGuy/meridian-run-asset-transfer/136ad60d78c56969259b61ec66bc9d346a3e9fd8/meridian-coin-lock/meridian-coin-lock.zip"
+  "download": "https://raw.githubusercontent.com/EvGuy/meridian-run-asset-transfer/8fe7b0662afbf8147a56f4b8ae79c755891c2b50/meridian-coin-lock/meridian-coin-lock.zip"
 }
