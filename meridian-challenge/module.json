@@ -1,0 +1,17 @@
+{
+  "id": "meridian-challenge",
+  "title": "Meridian Challenge",
+  "description": "Branching skill and social challenges: players vote on an approach, rolls resolve by roll mode, a track moves, and the story routes to the next node.",
+  "version": "0.1.0",
+  "compatibility": { "minimum": "13", "verified": "14" },
+  "authors": [{ "name": "Evan Guyton" }],
+  "esmodules": ["scripts/main.js"],
+  "styles": ["styles/challenge.css"],
+  "socket": true,
+  "relationships": {
+    "requires": [{ "id": "socketlib", "type": "module" }],
+    "systems": [{ "id": "dnd5e", "type": "system" }]
+  },
+  "manifest": "https://raw.githubusercontent.com/EvGuy/meridian-run-asset-transfer/main/meridian-challenge/module.json",
+  "download": ""
+}
