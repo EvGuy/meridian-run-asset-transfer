@@ -25,6 +25,6 @@
     "scripts/main.js"
   ],
   "manifest": "https://raw.githubusercontent.com/EvGuy/meridian-run-asset-transfer/main/meridian-hands/module.json",
-  "download": "https://raw.githubusercontent.com/EvGuy/meridian-run-asset-transfer/c02e86a1cf3f9e0e93fee1aa554ffd96345011b6/meridian-hands/meridian-hands.zip",
+  "download": "https://raw.githubusercontent.com/EvGuy/meridian-run-asset-transfer/c4cea329eecb2ef3879c994c98500eb2ce9c0410/meridian-hands/meridian-hands.zip",
   "socket": true
 }
