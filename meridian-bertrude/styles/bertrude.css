@@ -1,0 +1,6 @@
+/* Layout only. */
+.mbt { overflow-y: auto; }
+.mbt-row { display: flex; gap: 8px; align-items: center; margin: 4px 0; }
+.mbt-row span { flex: 1; overflow-wrap: anywhere; }
+.mbt-row button { width: auto; flex: 0 0 auto; }
+.mbt-line { font-style: italic; }

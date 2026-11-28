@@ -1,0 +1,12 @@
+{
+  "id": "meridian-bertrude",
+  "title": "Meridian Bertrude",
+  "description": "Bertrude the mimic chest: party storage, Taste Test, and persuading him to give things back.",
+  "version": "0.1.0",
+  "compatibility": { "minimum": "13", "verified": "14" },
+  "relationships": { "systems": [{ "id": "dnd5e", "type": "system" }] },
+  "esmodules": ["scripts/main.js"],
+  "styles": ["styles/bertrude.css"],
+  "manifest": "https://raw.githubusercontent.com/EvGuy/meridian-run-asset-transfer/main/meridian-bertrude/module.json",
+  "download": "https://raw.githubusercontent.com/EvGuy/meridian-run-asset-transfer/main/meridian-bertrude/meridian-bertrude.zip"
+}
